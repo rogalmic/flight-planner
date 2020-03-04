@@ -5,9 +5,39 @@
     <script src="https://cdn.jsdelivr.net/gh/openlayers/openlayers.github.io@master/en/v6.2.1/build/ol.js"></script>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/openlayers/openlayers.github.io@master/en/v6.2.1/css/ol.css">
     <style>
-      .map {
+      html, body {
+        height: 99%; font-family: monospace;
+      }
+      input, textarea, select {
+        font-family: 'Courier New', Courier, monospace; font-weight: bold;
+      }
+      div#map {
+        position: absolute;
+        left:0;
+        top: 0;
+        bottom: 0;
+        right: 0;
         width: 100%;
-        height:400px;
+        height: 100%;
+      }
+      div#options {
+        position: absolute;
+        left:100px;
+        top: 0;
+        right: 0;
+        height:24px;
+        z-index:1;
+        background: white;
+      }
+      div#log {
+        position: absolute;
+        left: 100px;
+        top: 24px;
+        right: 0;
+        height:24px;
+        z-index:1;
+        background: white;
+        display: none;
       }
       .ol-tooltip {
         position: relative;
@@ -42,33 +72,39 @@
       .ol-tooltip-static:before {
         border-top-color: #9999BB;
       }
+
+      select, input {
+        width: 80px; 
+      }
     </style>
   </head>
   <body>
-    <div id="map" class="map"></div>
-    <div>
-      <label>Units</label>
-      <select id="type">
-        <option value="metric">Metric (km/h, km, m)</option>
-        <option value="alternative">Alternative (kt, nm, ft)</option>
-      </select>
-      Aircraft speed
+    <div id="map"></div>
+    <div id="options">
+      <!-- Make selects -->
+      <label>Aircraft speed</label>
       <input type="number" id="aircraft_speed" value="150" />
-      Wind speed
+      <label>Wind speed</label>
       <input type="number" id="wind_speed" value="10" />
-      Wind direction
+      <label>Wind direction</label>
       <input type="number" id="wind_direction" value="250" />
+      <label>Magnetic declination</label>
+      <input type="number" id="magnetic_declination" value="3" />
+
+      <input type="button" id="save_csv" value="To CSV" />
+      <input type="button" id="toggle_results" value="&dArr; Logs" />
     </div>
-    <div>
+    <div id="log">
       <textarea id="log" readonly style="width: 100%; height: 200px;"></textarea>
     </div>
   <script>
 
-var typeSelect = document.getElementById('type');
 var logArea = document.querySelector("textarea#log");
+var divLog = document.querySelector("div#log");
 var aircraftSpeed = document.querySelector("input#aircraft_speed");
 var windSpeed = document.querySelector("input#wind_speed");
 var windDirection = document.querySelector("input#wind_direction");
+var saveCsv = document.querySelector("input#save_csv");
 
 let searchParams = new URLSearchParams(window.location.search);
 let lon = searchParams.has("lon") ? searchParams.get("lon") : "16.5238";
@@ -106,6 +142,14 @@ var vector = new ol.layer.Vector({
   })
 });
 
+function getDriftAngle(aircraftDirection, navigationalWindDirection, aircraftSpeed, windSpeed) {
+  let maxDrift = 60.0 * windSpeed / aircraftSpeed;
+  return Math.sin((navigationalWindDirection - aircraftDirection) * Math.PI / 180) * maxDrift;
+}
+
+function getAircraftSpeedCorrection(aircraftDirection, navigationalWindDirection, aircraftSpeed, windSpeed) {
+  return aircraftSpeed + Math.cos((navigationalWindDirection - aircraftDirection) * Math.PI / 180) * windSpeed;
+}
 
 var sketch;
 var helpTooltipElement;
@@ -150,7 +194,7 @@ var draw; // global so we can remove it later
 
 function formatLength(line) {
   var length = ol.sphere.getLength(line);
-  return (Math.round(length / 1000 * 100) / 100);
+  return Math.round(length / 1000);
 };
 
 
@@ -190,6 +234,8 @@ function addInteraction() {
       map.getOverlays().forEach(o => map.removeOverlay(o));
       createMeasureTooltip();  
 
+      divLog.style.display = "none";
+
       // set sketch
       sketch = evt.feature;
 
@@ -199,11 +245,14 @@ function addInteraction() {
       listener = sketch.getGeometry().on('change', function(evt) {
         let geom = evt.target;
         let output;
-
-        output = `${formatLength(geom)} ${'km'}`;
+      
         tooltipCoord = geom.getLastCoordinate();
 
-        logArea.value = `FROM;TO;DIST(${'km'});BEARING(${'deg'})\n`;
+        let outFormatRow = (strArr) => strArr.map(s => s.padEnd(16, " ")).join(";") + "\n";
+
+        logArea.value = outFormatRow([`FROM`,`TO`,`DIST(${'km'})`,`BEARING(${'deg'})`,`DRIFT`,`REALCOURSE`,`REALSPEED`,`TIME(min)`]);
+
+        let totalTime = 0;
 
         logArea.value += 
           geom.getCoordinates()
@@ -216,22 +265,48 @@ function addInteraction() {
 
               distance += formatLength(new ol.geom.LineString([a[i-1], a[i]]));
 
-              let heading = Math.atan((a[i][0] - a[i-1][0])/(a[i][1] - a[i-1][1])) * 180 / Math.PI;
+              let dx = a[i][0] - a[i-1][0];
+              let dy = a[i][1] - a[i-1][1];
+              let heading = Math.atan(dx/dy) * 180 / Math.PI;
+
               if (heading < 0) {
-                heading = 360 + heading;
+                heading += 180;
               }
+
+              if (dx < 0) {
+                heading += 180;
+              }
+
               heading = Math.floor(heading);
               course = heading;
 
-              let locationA = ol.coordinate.format(ol.proj.transform(a[i], 'EPSG:3857','EPSG:4326'), '{x}:{y}', 3);
-              let locationB = ol.coordinate.format(ol.proj.transform(a[i-1], 'EPSG:3857','EPSG:4326'), '{x}:{y}', 3);
-              return `${locationA};${locationB};${distance};${course}`;
+              let locationA = ol.coordinate.format(ol.proj.transform(a[i], 'EPSG:3857','EPSG:4326'), '[{x},{y}]', 3);
+              let locationB = ol.coordinate.format(ol.proj.transform(a[i-1], 'EPSG:3857','EPSG:4326'), '[{x},{y}]', 3);
+
+              let wind = parseInt(windSpeed.value);
+              let aircraft = parseInt(aircraftSpeed.value);
+              let windDir = parseInt(windDirection.value) + 180;
+              let aircraftDir = course;
+
+              let driftAngle = Math.floor(getDriftAngle(aircraftDir, windDir, aircraft, wind));
+              let realSpeed = Math.floor(getAircraftSpeedCorrection(aircraftDir, windDir, aircraft, wind));
+              let realTime = Math.floor(distance/realSpeed * 60);
+              let windCorrectedCourse = Math.floor(course - driftAngle);
+
+              totalTime += realTime;
+
+              return outFormatRow([`${locationA}`,`${locationB}`,`${distance}`,`${course}`,`${driftAngle}`,`${windCorrectedCourse}`,`${realSpeed}`,`${realTime}`]);
             }
 
             return ``;
           })
           .filter(t => t != ``)
-          .join("\n");
+          .join("");
+
+          logArea.value += `\n`;
+          logArea.value += outFormatRow([`-------`,`-------`,`${formatLength(geom)}`,`-------`,`-------`,`-------`,`-------`,`${totalTime}`]);
+
+          output = `${formatLength(geom)}${'km'} ${totalTime}min`;
 
         measureTooltipElement.innerHTML = output;
         measureTooltip.setPosition(tooltipCoord);
@@ -248,6 +323,8 @@ function addInteraction() {
       measureTooltipElement = null;
       createMeasureTooltip();
       ol.Observable.unByKey(listener);
+
+      divLog.style.display = "block";
     });
 }
 
@@ -281,11 +358,21 @@ function createMeasureTooltip() {
   map.addOverlay(measureTooltip);
 }
 
+saveCsv.onclick = () => {
+  var hiddenElement = document.createElement('a');
+    hiddenElement.href = 'data:text/csv;charset=utf-8,' + encodeURI(logArea.value);
+    hiddenElement.target = '_blank';
+    hiddenElement.download = 'flight-plan.csv';
+    hiddenElement.click();
+}
 
-typeSelect.onchange = function() {
-  map.removeInteraction(draw);
-  addInteraction();
-};
+toggle_results.onclick = () => {
+  if (divLog.style.display === "none") {
+    divLog.style.display = "block";
+  } else {
+    divLog.style.display = "none";
+  }
+}
 
 addInteraction();
 </script>
