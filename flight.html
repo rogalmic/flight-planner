@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <title>Raw Flight Planning</title>
+    <script src="https://cdn.jsdelivr.net/gh/openlayers/openlayers.github.io@master/en/v6.2.1/build/ol.js"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/openlayers/openlayers.github.io@master/en/v6.2.1/css/ol.css">
+    <style>
+      .map {
+        width: 100%;
+        height:400px;
+      }
+      .ol-tooltip {
+        position: relative;
+        background: rgba(0, 0, 0, 0.5);
+        border-radius: 4px;
+        color: white;
+        padding: 4px 8px;
+        opacity: 0.7;
+        white-space: nowrap;
+        font-size: 12px;
+      }
+      .ol-tooltip-measure {
+        opacity: 1;
+        font-weight: bold;
+      }
+      .ol-tooltip-static {
+        background-color: #ffcc33;
+        color: black;
+        border: 1px solid white;
+      }
+      .ol-tooltip-measure:before,
+      .ol-tooltip-static:before {
+        border-top: 6px solid rgba(0, 0, 0, 0.5);
+        border-right: 6px solid transparent;
+        border-left: 6px solid transparent;
+        content: "";
+        position: absolute;
+        bottom: -6px;
+        margin-left: -7px;
+        left: 50%;
+      }
+      .ol-tooltip-static:before {
+        border-top-color: #ffcc33;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="map" class="map"></div>
+    <div>
+      <label>Units</label>
+      <select id="type">
+        <option value="metric">Metric (km/h, km, m)</option>
+        <option value="alternative">Alternative (kt, nm, ft)</option>
+      </select>
+    </div>
+    <div>
+      <textarea id="log" readonly style="width: 100%; height: 200px;"></textarea>
+    </div>
+  <script>
+
+let searchParams = new URLSearchParams(window.location.search);
+let lon = searchParams.has("lon") ? searchParams.get("lon") : "16.5238";
+let lat = searchParams.has("lat") ? searchParams.get("lat") : "51.8320";
+let zoom = searchParams.has("z") ? searchParams.get("z") : "5";
+
+var raster = new ol.layer.Tile({
+  source: new ol.source.OSM({
+    attributions: [
+      '© <a href="https://github.com/rogalmic/">Michal R</a>',
+      ol.source.OSM.ATTRIBUTION
+    ],
+    wrapX: true
+  })
+});
+
+var source = new ol.source.Vector();
+
+var vector = new ol.layer.Vector({
+  source: source,
+  style: new ol.style.Style({
+    fill: new ol.style.Fill({
+      color: 'rgba(255, 255, 255, 0.2)'
+    }),
+    stroke: new ol.style.Stroke({
+      color: '#ffcc33',
+      width: 2
+    }),
+    image: new ol.style.Circle({
+      radius: 7,
+      fill: new ol.style.Fill({
+        color: '#ffcc33'
+      })
+    })
+  })
+});
+
+
+var sketch;
+var helpTooltipElement;
+var helpTooltip;
+var measureTooltipElement;
+var measureTooltip;
+var continueLineMsg = 'Click to continue drawing the line, double click to end';
+var helpMsg = 'Click to start planning';
+
+var pointerMoveHandler = function(evt) {
+  if (evt.dragging) {
+    return;
+  }  
+
+  if (sketch) {
+      helpMsg = continueLineMsg;
+  }
+
+  helpTooltipElement.innerHTML = helpMsg;
+  helpTooltip.setPosition(evt.coordinate);
+
+  helpTooltipElement.classList.remove('hidden');
+};
+
+
+var map = new ol.Map({
+  layers: [raster, vector],
+  target: 'map',
+  view: new ol.View({
+    center: ol.proj.fromLonLat([lon, lat]),
+    zoom: zoom
+  })
+});
+
+map.on('pointermove', pointerMoveHandler);
+
+map.getViewport().addEventListener('mouseout', function() {
+  helpTooltipElement.classList.add('hidden');
+});
+
+var typeSelect = document.getElementById('type');
+
+var draw; // global so we can remove it later
+
+
+var formatLength = function(line) {
+  var length = ol.sphere.getLength(line);
+  return (Math.round(length / 1000 * 100) / 100) + ' ' + 'km';
+};
+
+
+function addInteraction() {
+  draw = new ol.interaction.Draw({
+    source: source,
+    type: 'LineString',
+    style: new ol.style.Style({
+      fill: new ol.style.Fill({
+        color: 'rgba(255, 255, 255, 0.2)'
+      }),
+      stroke: new ol.style.Stroke({
+        color: 'rgba(0, 0, 0, 0.5)',
+        lineDash: [10, 10],
+        width: 2
+      }),
+      image: new ol.style.Circle({
+        radius: 5,
+        stroke: new ol.style.Stroke({
+          color: 'rgba(0, 0, 0, 0.7)'
+        }),
+        fill: new ol.style.Fill({
+          color: 'rgba(255, 255, 255, 0.2)'
+        })
+      })
+    })
+  });
+  map.addInteraction(draw);
+
+  createMeasureTooltip();
+  createHelpTooltip();
+
+  var listener;
+  draw.on('drawstart',
+    function(evt) {
+
+      source.getFeatures().forEach(f => source.removeFeature(f));
+      map.getOverlays().forEach(o => map.removeOverlay(o));
+
+      // set sketch
+      sketch = evt.feature;
+
+      /** @type {import("../src/ol/coordinate.js").Coordinate|undefined} */
+      var tooltipCoord = evt.coordinate;
+
+      listener = sketch.getGeometry().on('change', function(evt) {
+        var geom = evt.target;
+        var output;
+
+        output = formatLength(geom);
+        tooltipCoord = geom.getLastCoordinate();
+
+        document.querySelector("textarea#log").value = 
+          geom.getCoordinates()
+          .map((c, i, a) => {
+            let distance = "";
+
+            if (i > 0) {
+              distance += formatLength(new ol.geom.LineString([a[i-1], a[i]]));
+            }
+
+            return ol.coordinate.toStringHDMS(c) + " " + distance;
+          })
+          .join("\n");
+
+        measureTooltipElement.innerHTML = output;
+        measureTooltip.setPosition(tooltipCoord);
+      });
+    });
+
+  draw.on('drawend',
+    function() {
+      measureTooltipElement.className = 'ol-tooltip ol-tooltip-static';
+      measureTooltip.setOffset([0, -7]);
+      // unset sketch
+      sketch = null;
+      // unset tooltip so that a new one can be created
+      measureTooltipElement = null;
+      createMeasureTooltip();
+      ol.Observable.unByKey(listener);
+    });
+}
+
+
+function createHelpTooltip() {
+  if (helpTooltipElement) {
+    helpTooltipElement.parentNode.removeChild(helpTooltipElement);
+  }
+  helpTooltipElement = document.createElement('div');
+  helpTooltipElement.className = 'ol-tooltip hidden';
+  helpTooltip = new ol.Overlay({
+    element: helpTooltipElement,
+    offset: [15, 0],
+    positioning: 'center-left'
+  });
+  map.addOverlay(helpTooltip);
+}
+
+
+function createMeasureTooltip() {
+  if (measureTooltipElement) {
+    measureTooltipElement.parentNode.removeChild(measureTooltipElement);
+  }
+  measureTooltipElement = document.createElement('div');
+  measureTooltipElement.className = 'ol-tooltip ol-tooltip-measure';
+  measureTooltip = new ol.Overlay({
+    element: measureTooltipElement,
+    offset: [0, -15],
+    positioning: 'bottom-center'
+  });
+  map.addOverlay(measureTooltip);
+}
+
+
+typeSelect.onchange = function() {
+  map.removeInteraction(draw);
+  addInteraction();
+};
+
+addInteraction();
+</script>
+
+</body>
+</html>
