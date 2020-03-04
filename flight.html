@@ -24,7 +24,7 @@
         font-weight: bold;
       }
       .ol-tooltip-static {
-        background-color: #ffcc33;
+        background-color: #9999BB;
         color: black;
         border: 1px solid white;
       }
@@ -40,7 +40,7 @@
         left: 50%;
       }
       .ol-tooltip-static:before {
-        border-top-color: #ffcc33;
+        border-top-color: #9999BB;
       }
     </style>
   </head>
@@ -52,11 +52,23 @@
         <option value="metric">Metric (km/h, km, m)</option>
         <option value="alternative">Alternative (kt, nm, ft)</option>
       </select>
+      Aircraft speed
+      <input type="number" id="aircraft_speed" value="150" />
+      Wind speed
+      <input type="number" id="wind_speed" value="10" />
+      Wind direction
+      <input type="number" id="wind_direction" value="250" />
     </div>
     <div>
       <textarea id="log" readonly style="width: 100%; height: 200px;"></textarea>
     </div>
   <script>
+
+var typeSelect = document.getElementById('type');
+var logArea = document.querySelector("textarea#log");
+var aircraftSpeed = document.querySelector("input#aircraft_speed");
+var windSpeed = document.querySelector("input#wind_speed");
+var windDirection = document.querySelector("input#wind_direction");
 
 let searchParams = new URLSearchParams(window.location.search);
 let lon = searchParams.has("lon") ? searchParams.get("lon") : "16.5238";
@@ -82,13 +94,13 @@ var vector = new ol.layer.Vector({
       color: 'rgba(255, 255, 255, 0.2)'
     }),
     stroke: new ol.style.Stroke({
-      color: '#ffcc33',
-      width: 2
+      color: '#9999BB',
+      width: 3
     }),
     image: new ol.style.Circle({
       radius: 7,
       fill: new ol.style.Fill({
-        color: '#ffcc33'
+        color: '#9999BB'
       })
     })
   })
@@ -101,7 +113,7 @@ var helpTooltip;
 var measureTooltipElement;
 var measureTooltip;
 var continueLineMsg = 'Click to continue drawing the line, double click to end';
-var helpMsg = 'Click to start planning';
+var helpMsg = 'Click to start planning, double click to end';
 
 var pointerMoveHandler = function(evt) {
   if (evt.dragging) {
@@ -118,7 +130,6 @@ var pointerMoveHandler = function(evt) {
   helpTooltipElement.classList.remove('hidden');
 };
 
-
 var map = new ol.Map({
   layers: [raster, vector],
   target: 'map',
@@ -134,14 +145,12 @@ map.getViewport().addEventListener('mouseout', function() {
   helpTooltipElement.classList.add('hidden');
 });
 
-var typeSelect = document.getElementById('type');
-
 var draw; // global so we can remove it later
 
 
-var formatLength = function(line) {
+function formatLength(line) {
   var length = ol.sphere.getLength(line);
-  return (Math.round(length / 1000 * 100) / 100) + ' ' + 'km';
+  return (Math.round(length / 1000 * 100) / 100);
 };
 
 
@@ -156,7 +165,7 @@ function addInteraction() {
       stroke: new ol.style.Stroke({
         color: 'rgba(0, 0, 0, 0.5)',
         lineDash: [10, 10],
-        width: 2
+        width: 3
       }),
       image: new ol.style.Circle({
         radius: 5,
@@ -170,16 +179,16 @@ function addInteraction() {
     })
   });
   map.addInteraction(draw);
-
-  createMeasureTooltip();
+  
   createHelpTooltip();
 
   var listener;
   draw.on('drawstart',
-    function(evt) {
+    (evt) => {
 
       source.getFeatures().forEach(f => source.removeFeature(f));
       map.getOverlays().forEach(o => map.removeOverlay(o));
+      createMeasureTooltip();  
 
       // set sketch
       sketch = evt.feature;
@@ -188,23 +197,40 @@ function addInteraction() {
       var tooltipCoord = evt.coordinate;
 
       listener = sketch.getGeometry().on('change', function(evt) {
-        var geom = evt.target;
-        var output;
+        let geom = evt.target;
+        let output;
 
-        output = formatLength(geom);
+        output = `${formatLength(geom)} ${'km'}`;
         tooltipCoord = geom.getLastCoordinate();
 
-        document.querySelector("textarea#log").value = 
+        logArea.value = `FROM;TO;DIST(${'km'});BEARING(${'deg'})\n`;
+
+        logArea.value += 
           geom.getCoordinates()
           .map((c, i, a) => {
-            let distance = "";
+            if (i >= 1) {
 
-            if (i > 0) {
+              // TODO: initial bearing, final bearing https://www.movable-type.co.uk/scripts/latlong.html
+              let distance = "";
+              let course = "";
+
               distance += formatLength(new ol.geom.LineString([a[i-1], a[i]]));
+
+              let heading = Math.atan((a[i][0] - a[i-1][0])/(a[i][1] - a[i-1][1])) * 180 / Math.PI;
+              if (heading < 0) {
+                heading = 360 + heading;
+              }
+              heading = Math.floor(heading);
+              course = heading;
+
+              let locationA = ol.coordinate.format(ol.proj.transform(a[i], 'EPSG:3857','EPSG:4326'), '{x}:{y}', 3);
+              let locationB = ol.coordinate.format(ol.proj.transform(a[i-1], 'EPSG:3857','EPSG:4326'), '{x}:{y}', 3);
+              return `${locationA};${locationB};${distance};${course}`;
             }
 
-            return ol.coordinate.toStringHDMS(c) + " " + distance;
+            return ``;
           })
+          .filter(t => t != ``)
           .join("\n");
 
         measureTooltipElement.innerHTML = output;
@@ -213,7 +239,7 @@ function addInteraction() {
     });
 
   draw.on('drawend',
-    function() {
+    () => {
       measureTooltipElement.className = 'ol-tooltip ol-tooltip-static';
       measureTooltip.setOffset([0, -7]);
       // unset sketch
