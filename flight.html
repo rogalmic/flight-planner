@@ -1,15 +1,16 @@
 <!DOCTYPE html>
 <html lang="en">
   <head>
-    <title>Raw Flight Planning</title>
+    <title>Raw VFR Flight Planning</title>
     <script src="https://cdn.jsdelivr.net/gh/openlayers/openlayers.github.io@master/en/v6.2.1/build/ol.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/arc/arc.js"></script>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/openlayers/openlayers.github.io@master/en/v6.2.1/css/ol.css">
     <style>
       html, body {
-        height: 99%; font-family: monospace;
+        height: 99%; font-family: monospace; font-size: 14px;
       }
       input, textarea, select {
-        font-family: 'Courier New', Courier, monospace; font-weight: bold;
+        font-family: 'Courier New', Courier, monospace; font-weight: bold; font-size: 14px;
       }
       div#map {
         position: absolute;
@@ -73,9 +74,6 @@
         border-top-color: #9999BB;
       }
 
-      select, input {
-        width: 80px; 
-      }
     </style>
   </head>
   <body>
@@ -83,298 +81,339 @@
     <div id="options">
       <!-- Make selects -->
       <label>Aircraft speed</label>
-      <input type="number" id="aircraft_speed" value="150" />
+      <select id="aircraft_speed"></select>
       <label>Wind speed</label>
-      <input type="number" id="wind_speed" value="10" />
+      <select id="wind_speed"></select>
       <label>Wind direction</label>
-      <input type="number" id="wind_direction" value="250" />
+      <select id="wind_direction"></select>
       <label>Magnetic declination</label>
-      <input type="number" id="magnetic_declination" value="3" />
+      <select id="magnetic_declination"></select>
+
+      <label>Log units</label>
+      <select id="log_units">
+        <option value="metric">Metric (km, km/h)</option>
+        <option value="alternative" disabled>Alternative (nm, kts)</option>
+      </select>
 
       <input type="button" id="save_csv" value="To CSV" />
       <input type="button" id="toggle_results" value="&dArr; Logs" />
+      <input type="button" id="refresh_results" value="Refresh" />
     </div>
     <div id="log">
       <textarea id="log" readonly style="width: 100%; height: 200px;"></textarea>
     </div>
   <script>
+  var logArea = document.querySelector("textarea#log");
+  var divLog = document.querySelector("div#log");
+  var aircraftSpeed = document.querySelector("select#aircraft_speed");
+  var windSpeed = document.querySelector("select#wind_speed");
+  var windDirection = document.querySelector("select#wind_direction");
+  var magneticDeclination = document.querySelector("select#magnetic_declination");
+  var saveCsv = document.querySelector("input#save_csv");
+  var refreshLog = document.querySelector("input#refresh_results");
+  var toggleLog = document.querySelector("input#toggle_results");
 
-var logArea = document.querySelector("textarea#log");
-var divLog = document.querySelector("div#log");
-var aircraftSpeed = document.querySelector("input#aircraft_speed");
-var windSpeed = document.querySelector("input#wind_speed");
-var windDirection = document.querySelector("input#wind_direction");
-var saveCsv = document.querySelector("input#save_csv");
-
-let searchParams = new URLSearchParams(window.location.search);
-let lon = searchParams.has("lon") ? searchParams.get("lon") : "16.5238";
-let lat = searchParams.has("lat") ? searchParams.get("lat") : "51.8320";
-let zoom = searchParams.has("z") ? searchParams.get("z") : "5";
-
-var raster = new ol.layer.Tile({
-  source: new ol.source.OSM({
-    attributions: [
-      '© <a href="https://github.com/rogalmic/">Michal R</a>',
-      ol.source.OSM.ATTRIBUTION
-    ],
-    wrapX: true
-  })
-});
-
-var source = new ol.source.Vector();
-
-var vector = new ol.layer.Vector({
-  source: source,
-  style: new ol.style.Style({
-    fill: new ol.style.Fill({
-      color: 'rgba(255, 255, 255, 0.2)'
-    }),
-    stroke: new ol.style.Stroke({
-      color: '#9999BB',
-      width: 3
-    }),
-    image: new ol.style.Circle({
-      radius: 7,
-      fill: new ol.style.Fill({
-        color: '#9999BB'
-      })
-    })
-  })
-});
-
-function getDriftAngle(aircraftDirection, navigationalWindDirection, aircraftSpeed, windSpeed) {
-  let maxDrift = 60.0 * windSpeed / aircraftSpeed;
-  return Math.sin((navigationalWindDirection - aircraftDirection) * Math.PI / 180) * maxDrift;
-}
-
-function getAircraftSpeedCorrection(aircraftDirection, navigationalWindDirection, aircraftSpeed, windSpeed) {
-  return aircraftSpeed + Math.cos((navigationalWindDirection - aircraftDirection) * Math.PI / 180) * windSpeed;
-}
-
-var sketch;
-var helpTooltipElement;
-var helpTooltip;
-var measureTooltipElement;
-var measureTooltip;
-var continueLineMsg = 'Click to continue drawing the line, double click to end';
-var helpMsg = 'Click to start planning, double click to end';
-
-var pointerMoveHandler = function(evt) {
-  if (evt.dragging) {
-    return;
-  }  
-
-  if (sketch) {
-      helpMsg = continueLineMsg;
+  function setupSelectOptions(selectElement, iterations, multiplier, selectedIteration, formatterFunc) {
+    Array.from({ length: iterations }, (x, i) => {
+      let opt = document.createElement("option");
+      opt.text = formatterFunc(multiplier * i);
+      opt.value = (multiplier * i) * 1.85;
+      opt.selected = i == selectedIteration;
+      selectElement.add(opt);
+    });
   }
 
-  helpTooltipElement.innerHTML = helpMsg;
-  helpTooltip.setPosition(evt.coordinate);
+  window.onload = () => {
 
-  helpTooltipElement.classList.remove('hidden');
-};
+    setupSelectOptions(aircraftSpeed, 60, 5, 20, (v) => `${Math.round(v)}kts ${Math.round(v * 1.85)}km/h ${Math.round(v* 0.51)}m/s`);
+    setupSelectOptions(windSpeed, 60, 1, 0, (v) => `${Math.round(v)}kts ${Math.round(v * 1.85)}km/h ${Math.round(v* 0.51)}m/s`);
+    setupSelectOptions(windDirection, 36, 10, 0, (v) => `${Math.round(v)}deg`);
+    setupSelectOptions(magneticDeclination, 60, 1, 30, (v) => `${Math.round(v-30)}deg`);
+  };
 
-var map = new ol.Map({
-  layers: [raster, vector],
-  target: 'map',
-  view: new ol.View({
-    center: ol.proj.fromLonLat([lon, lat]),
-    zoom: zoom
-  })
-});
+  let searchParams = new URLSearchParams(window.location.search);
+  let lon = searchParams.has("lon") ? searchParams.get("lon") : "16.5238";
+  let lat = searchParams.has("lat") ? searchParams.get("lat") : "51.8320";
+  let zoom = searchParams.has("z") ? searchParams.get("z") : "5";
 
-map.on('pointermove', pointerMoveHandler);
+  var raster = new ol.layer.Tile({
+    source: new ol.source.OSM({
+      attributions: [
+        '&copy; <a href="https://github.com/rogalmic/">Michal R</a>',
+        ol.source.OSM.ATTRIBUTION
+      ],
+      wrapX: true
+    })
+  });
 
-map.getViewport().addEventListener('mouseout', function() {
-  helpTooltipElement.classList.add('hidden');
-});
+  var source = new ol.source.Vector();
 
-var draw; // global so we can remove it later
-
-
-function formatLength(line) {
-  var length = ol.sphere.getLength(line);
-  return Math.round(length / 1000);
-};
-
-
-function addInteraction() {
-  draw = new ol.interaction.Draw({
+  var vector = new ol.layer.Vector({
     source: source,
-    type: 'LineString',
     style: new ol.style.Style({
       fill: new ol.style.Fill({
         color: 'rgba(255, 255, 255, 0.2)'
       }),
       stroke: new ol.style.Stroke({
-        color: 'rgba(0, 0, 0, 0.5)',
-        lineDash: [10, 10],
+        color: '#9999BB',
         width: 3
       }),
       image: new ol.style.Circle({
-        radius: 5,
-        stroke: new ol.style.Stroke({
-          color: 'rgba(0, 0, 0, 0.7)'
-        }),
+        radius: 7,
         fill: new ol.style.Fill({
-          color: 'rgba(255, 255, 255, 0.2)'
+          color: '#9999BB'
         })
-      })
+      }),
+      geometry: drawGreatCircle,
     })
   });
-  map.addInteraction(draw);
-  
-  createHelpTooltip();
 
-  var listener;
-  draw.on('drawstart',
-    (evt) => {
+  function getDriftAngle(aircraftDirection, navigationalWindDirection, aircraftSpeed, windSpeed) {
+    let maxDrift = 60.0 * windSpeed / aircraftSpeed;
+    return Math.sin((navigationalWindDirection - aircraftDirection) * Math.PI / 180) * maxDrift;
+  }
 
-      source.getFeatures().forEach(f => source.removeFeature(f));
-      map.getOverlays().forEach(o => map.removeOverlay(o));
-      createMeasureTooltip();  
+  function getAircraftSpeedCorrection(aircraftDirection, navigationalWindDirection, aircraftSpeed, windSpeed) {
+    return aircraftSpeed + Math.cos((navigationalWindDirection - aircraftDirection) * Math.PI / 180) * windSpeed;
+  }
 
-      divLog.style.display = "none";
+  function getHeading(dx, dy) {
+    let heading = Math.atan(dx / dy) * 180 / Math.PI;
+    return heading + (heading < 0) ? 180 : 0 + (dx < 0) ? 180 : 0;
+  }
 
-      // set sketch
-      sketch = evt.feature;
+  function drawGreatCircle(feature) {
+    var projection = map.getView().getProjection();
+    var coordinates = feature.getGeometry().clone().transform(projection, 'EPSG:4326').getCoordinates();
+    var coords = [];
+    for (var i = 0; i < coordinates.length - 1 && Array.isArray(coordinates[0]); i++) {
+      var from = coordinates[i];
+      var to = coordinates[i + 1];
+      var arcGenerator = new arc.GreatCircle(
+        { x: from[0], y: from[1] },
+        { x: to[0], y: to[1] });
+      var arcLine = arcGenerator.Arc(100, { offset: 10 });
+      arcLine.geometries.forEach(function (geom) { coords.push(geom.coords); });
+    }
+    var line = new ol.geom.MultiLineString(coords);
+    line.transform('EPSG:4326', projection);
+    return line;
+  }
 
-      /** @type {import("../src/ol/coordinate.js").Coordinate|undefined} */
-      var tooltipCoord = evt.coordinate;
+  var sketch;
+  var helpTooltipElement;
+  var helpTooltip;
+  var measureTooltipElement;
+  var measureTooltip;
+  var helpMsg = 'Click to start planning, double click to end';
 
-      listener = sketch.getGeometry().on('change', function(evt) {
-        let geom = evt.target;
-        let output;
-      
-        tooltipCoord = geom.getLastCoordinate();
+  var pointerMoveHandler = function (evt) {
+    if (evt.dragging) {
+      return;
+    }
 
-        let outFormatRow = (strArr) => strArr.map(s => s.padEnd(16, " ")).join(";") + "\n";
+    helpTooltipElement.innerHTML = helpMsg;
+    helpTooltip.setPosition(evt.coordinate);
 
-        logArea.value = outFormatRow([`FROM`,`TO`,`DIST(${'km'})`,`BEARING(${'deg'})`,`DRIFT`,`REALCOURSE`,`REALSPEED`,`TIME(min)`]);
+    helpTooltipElement.classList.remove('hidden');
+  };
 
-        let totalTime = 0;
+  var map = new ol.Map({
+    layers: [raster, vector],
+    target: 'map',
+    view: new ol.View({
+      center: ol.proj.fromLonLat([lon, lat]),
+      zoom: zoom
+    })
+  });
 
-        logArea.value += 
-          geom.getCoordinates()
-          .map((c, i, a) => {
-            if (i >= 1) {
+  map.on('pointermove', pointerMoveHandler);
 
-              // TODO: initial bearing, final bearing https://www.movable-type.co.uk/scripts/latlong.html
-              let distance = "";
-              let course = "";
+  map.getViewport().addEventListener('mouseout', function () {
+    helpTooltipElement.classList.add('hidden');
+  });
 
-              distance += formatLength(new ol.geom.LineString([a[i-1], a[i]]));
+  var draw; // global so we can remove it later
 
-              let dx = a[i][0] - a[i-1][0];
-              let dy = a[i][1] - a[i-1][1];
-              let heading = Math.atan(dx/dy) * 180 / Math.PI;
 
-              if (heading < 0) {
-                heading += 180;
-              }
+  function formatLength(line) {
+    var length = ol.sphere.getLength(line);
+    return Math.round(length / 1000);
+  };
 
-              if (dx < 0) {
-                heading += 180;
-              }
 
-              heading = Math.floor(heading);
-              course = heading;
-
-              let locationA = ol.coordinate.format(ol.proj.transform(a[i], 'EPSG:3857','EPSG:4326'), '[{x},{y}]', 3);
-              let locationB = ol.coordinate.format(ol.proj.transform(a[i-1], 'EPSG:3857','EPSG:4326'), '[{x},{y}]', 3);
-
-              let wind = parseInt(windSpeed.value);
-              let aircraft = parseInt(aircraftSpeed.value);
-              let windDir = parseInt(windDirection.value) + 180;
-              let aircraftDir = course;
-
-              let driftAngle = Math.floor(getDriftAngle(aircraftDir, windDir, aircraft, wind));
-              let realSpeed = Math.floor(getAircraftSpeedCorrection(aircraftDir, windDir, aircraft, wind));
-              let realTime = Math.floor(distance/realSpeed * 60);
-              let windCorrectedCourse = Math.floor(course - driftAngle);
-
-              totalTime += realTime;
-
-              return outFormatRow([`${locationA}`,`${locationB}`,`${distance}`,`${course}`,`${driftAngle}`,`${windCorrectedCourse}`,`${realSpeed}`,`${realTime}`]);
-            }
-
-            return ``;
+  function addInteraction() {
+    draw = new ol.interaction.Draw({
+      source: source,
+      type: 'LineString',
+      style: new ol.style.Style({
+        fill: new ol.style.Fill({
+          color: 'rgba(255, 255, 255, 0.2)'
+        }),
+        stroke: new ol.style.Stroke({
+          color: 'rgba(0, 0, 0, 0.5)',
+          lineDash: [10, 10],
+          width: 3
+        }),
+        image: new ol.style.Circle({
+          radius: 5,
+          stroke: new ol.style.Stroke({
+            color: 'rgba(0, 0, 0, 0.7)'
+          }),
+          fill: new ol.style.Fill({
+            color: 'rgba(255, 255, 255, 0.2)'
           })
-          .filter(t => t != ``)
-          .join("");
+        }),
+        geometry: drawGreatCircle,
+      })
+    });
+    map.addInteraction(draw);
+
+    createHelpTooltip();
+
+    var listener;
+    draw.on('drawstart',
+      (evt) => {
+
+        createMeasureTooltip();
+
+        source.getFeatures().forEach(f => source.removeFeature(f));
+        map.getOverlays().forEach(o => map.removeOverlay(o));
+
+        divLog.style.display = "none";
+
+        // set sketch
+        sketch = evt.feature;
+
+        /** @type {import("../src/ol/coordinate.js").Coordinate|undefined} */
+        var tooltipCoord = evt.coordinate;
+
+        listener = sketch.getGeometry().on('change', function (evt) {
+          let geom = evt.target;
+          let output;
+          let totalTime = 0;
+
+          tooltipCoord = geom.getLastCoordinate();
+
+          let outFormatRow = (strArr) => strArr.map(s => s.padEnd(18, " ")).join(";") + "\n";
+
+          logArea.value = outFormatRow([`FROM`, `TO`, `DIST(${'km'})`, `TRACK(${'deg'})`, `HEADING(${'deg'})`, `MAGNETIC(${'deg'})`, `SPEED(${'km/h'})`, `TIME(${'min'})`]);
+
+          logArea.value +=
+            geom.getCoordinates()
+              .map((c, i, a) => {
+                if (i >= 1) {
+
+                  // TODO: initial bearing, final bearing https://www.movable-type.co.uk/scripts/latlong.html
+                  let distance = "";
+                  let course = "";
+
+                  distance += formatLength(new ol.geom.LineString([a[i - 1], a[i]]));
+
+                  let heading = Math.floor(getHeading(a[i][0] - a[i - 1][0], a[i][1] - a[i - 1][1]));
+                  
+                  course = heading;
+
+                  let locationA = ol.coordinate.format(ol.proj.transform(a[i], 'EPSG:3857', 'EPSG:4326'), '[{x},{y}]', 3);
+                  let locationB = ol.coordinate.format(ol.proj.transform(a[i - 1], 'EPSG:3857', 'EPSG:4326'), '[{x},{y}]', 3);
+
+                  let wind = parseInt(windSpeed.value);
+                  let aircraft = parseInt(aircraftSpeed.value);
+                  let windDir = parseInt(windDirection.value) + 180;
+                  let declination = Math.floor(magneticDeclination.value);
+                  let aircraftDir = course;
+
+                  let driftAngle = Math.floor(getDriftAngle(aircraftDir, windDir, aircraft, wind));
+                  let realSpeed = Math.floor(getAircraftSpeedCorrection(aircraftDir, windDir, aircraft, wind));
+                  let realTime = Math.floor(distance / realSpeed * 60);
+                  let windCorrectedHeading = Math.floor(course - driftAngle);
+                  let windCorrectedMagneticHeading = Math.floor(windCorrectedHeading - declination);
+
+                  totalTime += Number.isNaN(realTime) ? 0 : realTime;
+
+                  return outFormatRow([`${locationA}`, `${locationB}`, `${distance}`, `${course}`, `${windCorrectedHeading} (-${driftAngle})`, `${windCorrectedMagneticHeading} (-${declination})`, `${realSpeed}`, `${realTime}`]);
+                }
+
+                return ``;
+              })
+              .filter(t => t != ``)
+              .join("");
 
           logArea.value += `\n`;
-          logArea.value += outFormatRow([`-------`,`-------`,`${formatLength(geom)}`,`-------`,`-------`,`-------`,`-------`,`${totalTime}`]);
+          logArea.value += outFormatRow([`-------`, `-------`, `${formatLength(geom)}`, `-------`, `-------`, `-------`, `-------`, `${totalTime}`]);
 
           output = `${formatLength(geom)}${'km'} ${totalTime}min`;
 
-        measureTooltipElement.innerHTML = output;
-        measureTooltip.setPosition(tooltipCoord);
+          measureTooltipElement.innerHTML = output;
+          measureTooltip.setPosition(tooltipCoord);
+        });
       });
-    });
 
-  draw.on('drawend',
-    () => {
-      measureTooltipElement.className = 'ol-tooltip ol-tooltip-static';
-      measureTooltip.setOffset([0, -7]);
-      // unset sketch
-      sketch = null;
-      // unset tooltip so that a new one can be created
-      measureTooltipElement = null;
-      createMeasureTooltip();
-      ol.Observable.unByKey(listener);
+    draw.on('drawend',
+      () => {
+        measureTooltipElement.className = 'ol-tooltip ol-tooltip-static';
+        measureTooltip.setOffset([0, -7]);
+        // unset sketch
+        sketch = null;
+        // unset tooltip so that a new one can be created
+        //measureTooltipElement = null;
+        ol.Observable.unByKey(listener);
 
-      divLog.style.display = "block";
-    });
-}
-
-
-function createHelpTooltip() {
-  if (helpTooltipElement) {
-    helpTooltipElement.parentNode.removeChild(helpTooltipElement);
+        divLog.style.display = "block";
+      });
   }
-  helpTooltipElement = document.createElement('div');
-  helpTooltipElement.className = 'ol-tooltip hidden';
-  helpTooltip = new ol.Overlay({
-    element: helpTooltipElement,
-    offset: [15, 0],
-    positioning: 'center-left'
-  });
-  map.addOverlay(helpTooltip);
-}
 
 
-function createMeasureTooltip() {
-  if (measureTooltipElement) {
-    measureTooltipElement.parentNode.removeChild(measureTooltipElement);
+  function createHelpTooltip() {
+    if (helpTooltipElement) {
+      helpTooltipElement.parentNode.removeChild(helpTooltipElement);
+    }
+    helpTooltipElement = document.createElement('div');
+    helpTooltipElement.className = 'ol-tooltip hidden';
+    helpTooltip = new ol.Overlay({
+      element: helpTooltipElement,
+      offset: [15, 0],
+      positioning: 'center-left'
+    });
+    map.addOverlay(helpTooltip);
   }
-  measureTooltipElement = document.createElement('div');
-  measureTooltipElement.className = 'ol-tooltip ol-tooltip-measure';
-  measureTooltip = new ol.Overlay({
-    element: measureTooltipElement,
-    offset: [0, -15],
-    positioning: 'bottom-center'
-  });
-  map.addOverlay(measureTooltip);
-}
 
-saveCsv.onclick = () => {
-  var hiddenElement = document.createElement('a');
+
+  function createMeasureTooltip() {
+    if (measureTooltipElement) {
+      measureTooltipElement.parentNode.removeChild(measureTooltipElement);
+    }
+    measureTooltipElement = document.createElement('div');
+    measureTooltipElement.className = 'ol-tooltip ol-tooltip-measure';
+    measureTooltip = new ol.Overlay({
+      element: measureTooltipElement,
+      offset: [0, -15],
+      positioning: 'bottom-center'
+    });
+    map.addOverlay(measureTooltip);
+  }
+
+  saveCsv.onclick = () => {
+    var hiddenElement = document.createElement('a');
     hiddenElement.href = 'data:text/csv;charset=utf-8,' + encodeURI(logArea.value);
     hiddenElement.target = '_blank';
     hiddenElement.download = 'flight-plan.csv';
     hiddenElement.click();
-}
-
-toggle_results.onclick = () => {
-  if (divLog.style.display === "none") {
-    divLog.style.display = "block";
-  } else {
-    divLog.style.display = "none";
   }
-}
 
-addInteraction();
+  toggleLog.onclick = () => {
+    if (divLog.style.display === "none") {
+      divLog.style.display = "block";
+    } else {
+      divLog.style.display = "none";
+    }
+  }
+
+  refreshLog.onclick = () => {
+    measureTooltipElement.innerHTML = "Invalidated";
+  }
+
+  addInteraction();
 </script>
 
 </body>
