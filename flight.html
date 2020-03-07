@@ -24,7 +24,7 @@
     <div id="map"></div>
     <div id="options">
       <input type="button" id="toggle_results" value="&#8661; Logs" />
-      <label>Speed</label>
+      <label>TAS</label>
       <select id="aircraft_speed"></select>
       <label>Wind</label>
       <select id="wind_direction"></select>
@@ -38,7 +38,7 @@
       </select>
       <input type="button" id="refresh_results" value="&#8634; Update" />
       <input type="button" id="path_weather" value="&#x2608; Metar"/>
-      <input type="button" id="save_csv" value="&#9636; To CSV" />
+      <input type="button" id="save_csv" value="&#9636; To CSV" />      
     </div>
     <div id="log">
       <textarea id="log" readonly ></textarea>
@@ -115,12 +115,11 @@
   });
 
   function getDriftAngle(aircraftDirection, navigationalWindDirection, aircraftSpeed, windSpeed) {
-    let maxDrift = 60.0 * windSpeed / aircraftSpeed;
-    return Math.sin((navigationalWindDirection - aircraftDirection) * Math.PI / 180) * maxDrift;
+    return Math.asin(windSpeed * Math.sin((navigationalWindDirection - aircraftDirection) * Math.PI / 180) / aircraftSpeed) * 180 / Math.PI;
   }
 
-  function getAircraftSpeedCorrection(aircraftDirection, navigationalWindDirection, aircraftSpeed, windSpeed) {
-    return aircraftSpeed + Math.cos((navigationalWindDirection - aircraftDirection) * Math.PI / 180) * windSpeed;
+  function getAircraftSpeedCorrection(aircraftDirection, navigationalWindDirection, aircraftSpeed, windSpeed, driftAngle) {
+    return Math.cos(driftAngle * Math.PI / 180) * aircraftSpeed + Math.cos((navigationalWindDirection - aircraftDirection) * Math.PI / 180) * windSpeed;
   }
 
   function getHeading(dx, dy) {
@@ -183,7 +182,7 @@
             let aircraftDir = course;
 
             let driftAngle = Math.round(getDriftAngle(aircraftDir, windDir, aircraft, wind));
-            let realSpeed = Math.round(getAircraftSpeedCorrection(aircraftDir, windDir, aircraft, wind) / unitFactor);
+            let realSpeed = Math.round(getAircraftSpeedCorrection(aircraftDir, windDir, aircraft, wind, driftAngle) / unitFactor);
             let realTime = Math.round(distance / realSpeed * 60);
             let windCorrectedHeading = Math.round(course - driftAngle);
             let windCorrectedMagneticHeading = Math.round(windCorrectedHeading - declination);
