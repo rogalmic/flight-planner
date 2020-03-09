@@ -133,7 +133,7 @@
 
   function getHeading(dx, dy) {
     let heading = Math.atan(dx / dy) * 180 / Math.PI;
-    return heading + ((heading < 0) ? 180 : 0) + ((dx < 0) ? 180 : 0);
+    return heading + (( 1 / heading < 0) ? 180 : 0) + ((dx < 0) ? 180 : 0);
   }
 
   function drawGreatCircle(feature) {
