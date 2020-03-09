@@ -2,9 +2,9 @@
 <html lang="en">
   <head>
     <title>VFR Flight Planning</title>
-    <script src="https://cdn.jsdelivr.net/gh/openlayers/openlayers.github.io@master/en/v6.2.1/build/ol.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/arc/arc.js"></script>
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/openlayers/openlayers.github.io@master/en/v6.2.1/css/ol.css">
+    <script src="./src/ol.js"></script>
+    <script src="./src/arc.js"></script>
+    <link rel="stylesheet" href="./src/ol.css">
     <style>
       html, body { height: 99%; font-family: monospace; font-size: 14px; }
       input, textarea, select { font-family: monospace; font-weight: bold; font-size: 14px; background: white;}
@@ -45,6 +45,9 @@
     </div>
   <script>
   const KmInNm = 1.852;
+  const isLocalUrl = window.location.protocol == "file:";
+  const localOsmUrl = './tiles/{z}/{x}/{y}.png';
+  const remoteOsmUrl =  'https://{a-c}.tile.openstreetmap.org/{z}/{x}/{y}.png';
 
   var logArea = document.querySelector("textarea#log");
   var divLog = document.querySelector("div#log");
@@ -82,14 +85,20 @@
   let lat = searchParams.has("lat") ? searchParams.get("lat") : "51.8320";
   let zoom = searchParams.has("z") ? searchParams.get("z") : "5";
 
-  var raster = new ol.layer.Tile({
-    source: new ol.source.OSM({
+  var osm = new ol.source.OSM({
       attributions: [
         '&copy; <a href="https://github.com/rogalmic/">Michal R.</a>',
         ol.source.OSM.ATTRIBUTION
       ],
-      wrapX: true
-    })
+      wrapX: true,
+      crossOrigin: null,
+      url: isLocalUrl ? localOsmUrl : remoteOsmUrl,
+    });
+
+   osm.on('tileloaderror', ()=> osm.setUrl((osm.getUrls()[0] == localOsmUrl) ? remoteOsmUrl : localOsmUrl));
+
+  var raster = new ol.layer.Tile({
+    source: osm
   });
 
   var source = new ol.source.Vector();
@@ -336,8 +345,7 @@
     let urlArgs = geomCache.getCoordinates().map(c => ol.coordinate.format(ol.proj.transform(c, 'EPSG:3857', 'EPSG:4326'), '{x},{y}', 3));
     urlArgs.unshift(radiusNm);
     const url = `https://aviationweather.gov/adds/dataserver_current/httpparam?dataSource=metars&requestType=retrieve&format=xml&flightPath=${urlArgs.join(';')}&hoursBeforeNow=${hoursBeforeNow}`;
-    var win = window.open(url, '_blank');
-    win.focus();
+    window.open(url, '_blank').focus();
   }
 
   [aircraftSpeed, windSpeed, windDirection, magneticDeclination,logUnits].forEach(e => e.onchange = ()=> calculateRoute());

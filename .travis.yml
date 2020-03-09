@@ -1,0 +1,33 @@
+language: node_js
+
+node_js:
+- '12.4.0'
+
+os:
+- linux
+
+group: dev
+sudo: required
+dist: xenial
+
+branches:
+  only:
+  - master
+
+install:
+- git clone https://github.com/rogalmic/osm-tile-downloader.git ; cd osm-tile-downloader/ ; npm install
+
+script:
+- node ./osm-tile-downloader/osm-tile-downloader.js --start-zoom-level 2 --end-zoom-level 4 --url https://b.tile.openstreetmap.org/{z}/{x}/{y}.png --output-dir ./tiles/ --delay 50 --yes
+- zip -r /tmp/flight-planner.zip ./
+- mv /tmp/flight-planner.zip ./
+
+# deploy:
+#   - provider: releases
+#     api_key: $GITHUB_TOKEN
+#     file_glob: true
+#     file: "*.zip"
+#     skip_cleanup: true
+#     on:
+#       branch: master
+#       condition: "$TRAVIS_OS_NAME == linux"
