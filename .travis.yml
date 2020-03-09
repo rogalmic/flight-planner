@@ -15,10 +15,10 @@ branches:
   - master
 
 install:
-- git clone https://github.com/rogalmic/osm-tile-downloader.git ; cd osm-tile-downloader/ ; npm install
+- npm install
 
 script:
-- node ./osm-tile-downloader/osm-tile-downloader.js --start-zoom-level 2 --end-zoom-level 4 --url https://b.tile.openstreetmap.org/{z}/{x}/{y}.png --output-dir ./tiles/ --delay 50 --yes
+- node ./node_modules/osm-tile-downloader/osm-tile-downloader.js --start-zoom-level 2 --end-zoom-level 4 --url https://b.tile.openstreetmap.org/{z}/{x}/{y}.png --output-dir ./tiles/ --delay 50 --yes
 - zip -r /tmp/flight-planner.zip ./
 - mv /tmp/flight-planner.zip ./
 

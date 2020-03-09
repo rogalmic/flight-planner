@@ -1,0 +1,30 @@
+{
+  "name": "flight-planner",
+  "version": "0.0.1",
+  "description": "VFR Flight Planner",
+  "main": "flight.html",
+  "scripts": {},
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/rogalmic/flight-planner.git"
+  },
+  "keywords": [
+    "vfr",
+    "flight",
+    "plan"
+  ],
+  "author": {
+    "name": "Michal Rogalinski",
+    "email": "rogalinsky@gmail.com"
+  },
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/rogalmic/flight-planner/issues"
+  },
+  "homepage": "https://github.com/rogalmic/flight-planner#readme",
+  "dependencies": {
+    "arc": "0.1.1",
+    "ol": "6.2.1",
+    "osm-tile-downloader": "rogalmic/osm-tile-downloader#master"
+  }
+}
