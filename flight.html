@@ -36,9 +36,9 @@
         <option value="metric">km,km/h</option>
         <option value="alternative">nm,kts</option>
       </select>
-      <input type="button" id="refresh_results" value="&#8634; Update" />
       <input type="button" id="path_weather" value="&#x2608; Metar"/>
-      <input type="button" id="save_csv" value="&#9636; To CSV" />      
+      <input type="button" id="path_forecast" value="&#x26C5; Taf" />
+      <input type="button" id="save_csv" value="&#9636; To CSV" />
     </div>
     <div id="log">
       <textarea id="log" readonly ></textarea>
@@ -57,8 +57,8 @@
   var magneticDeclination = document.querySelector("select#magnetic_declination");
   var logUnits = document.querySelector("select#log_units");
   var queryWeather = document.querySelector("input#path_weather");
+  var queryForecast = document.querySelector("input#path_forecast");
   var saveCsv = document.querySelector("input#save_csv");
-  var refreshLog = document.querySelector("input#refresh_results");
   var toggleLog = document.querySelector("input#toggle_results");
 
   var draw; 
@@ -239,6 +239,12 @@
     return Math.round(length / unitFactor / 1000);
   };
 
+  function enableFeatures(dataAvailable) {
+    divLog.style.display = dataAvailable ? "block" : "none";
+    queryWeather.disabled = !dataAvailable;
+    queryForecast.disabled = !dataAvailable;
+  }
+
   function addInteraction() {
     draw = new ol.interaction.Draw({
       source: source,
@@ -273,8 +279,7 @@
         source.getFeatures().forEach(f => source.removeFeature(f));
         map.getOverlays().forEach(o => map.removeOverlay(o));
 
-        divLog.style.display = "none";
-        queryWeather.disabled = true;
+        enableFeatures(false);
 
         listener = evt.feature.getGeometry().on('change', function (evt) {
           geomCache = evt.target;
@@ -290,8 +295,7 @@
         measureTooltip.setOffset([0, -7]);
         ol.Observable.unByKey(listener);
 
-        divLog.style.display = "block";
-        queryWeather.disabled = false;
+        enableFeatures(true);
       });
   }
 
@@ -348,17 +352,28 @@
     window.open(url, '_blank').focus();
   }
 
-  [aircraftSpeed, windSpeed, windDirection, magneticDeclination,logUnits].forEach(e => e.onchange = ()=> calculateRoute());
-
-  refreshLog.onclick = () => {
+  queryForecast.onclick = () => {
     calculateRoute();
   }
+
+  [queryWeather, queryForecast].forEach(e => e.onclick = ()=> {
+    const radiusNm = 45;
+    const hoursBeforeNow = 1;
+    const dataType = (e == queryWeather) ? "metars" : "tafs";
+    const dataFormat = true ? "xml" : "csv";
+    let urlArgs = geomCache.getCoordinates().map(c => ol.coordinate.format(ol.proj.transform(c, 'EPSG:3857', 'EPSG:4326'), '{x},{y}', 3));
+    urlArgs.unshift(radiusNm);
+    const url = `https://aviationweather.gov/adds/dataserver_current/httpparam?dataSource=${dataType}&requestType=retrieve&format=${dataFormat}&flightPath=${urlArgs.join(';')}&hoursBeforeNow=${hoursBeforeNow}`;
+    window.open(url, '_blank').focus();
+  });
+
+
+  [aircraftSpeed, windSpeed, windDirection, magneticDeclination,logUnits].forEach(e => e.onchange = ()=> calculateRoute());
 
   window.onload = () => {
     addInteraction();
     createHelpTooltip();
-    divLog.style.display = "none";
-    queryWeather.disabled = true;
+    enableFeatures(false);
 
     setupSelectOptions(aircraftSpeed, 60, 5, 1.85, 20, 0, (v) => `${Math.round(v).toString().padStart(3, "0")}kts (${Math.round(v * 1.85)}km/h)`);
     setupSelectOptions(windSpeed, 60, 1, 1.85, 0, 0, (v) => `${Math.round(v).toString().padStart(2, "0")}kts (${Math.round(v * 1.85)}km/h)`);
