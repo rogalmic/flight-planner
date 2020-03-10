@@ -46,29 +46,27 @@
   <script>
   const KmInNm = 1.852;
   const isLocalUrl = window.location.protocol == "file:";
-  const localOsmUrl = './tiles/{z}/{x}/{y}.png';
-  const remoteOsmUrl =  'https://{a-c}.tile.openstreetmap.org/{z}/{x}/{y}.png';
 
-  var logArea = document.querySelector("textarea#log");
-  var divLog = document.querySelector("div#log");
-  var aircraftSpeed = document.querySelector("select#aircraft_speed");
-  var windSpeed = document.querySelector("select#wind_speed");
-  var windDirection = document.querySelector("select#wind_direction");
-  var magneticDeclination = document.querySelector("select#magnetic_declination");
-  var logUnits = document.querySelector("select#log_units");
-  var queryWeather = document.querySelector("input#path_weather");
-  var queryForecast = document.querySelector("input#path_forecast");
-  var saveCsv = document.querySelector("input#save_csv");
-  var toggleLog = document.querySelector("input#toggle_results");
+  const logArea = document.querySelector("textarea#log");
+  const divLog = document.querySelector("div#log");
+  const aircraftSpeed = document.querySelector("select#aircraft_speed");
+  const windSpeed = document.querySelector("select#wind_speed");
+  const windDirection = document.querySelector("select#wind_direction");
+  const magneticDeclination = document.querySelector("select#magnetic_declination");
+  const logUnits = document.querySelector("select#log_units");
+  const queryWeather = document.querySelector("input#path_weather");
+  const queryForecast = document.querySelector("input#path_forecast");
+  const saveCsv = document.querySelector("input#save_csv");
+  const toggleLog = document.querySelector("input#toggle_results");
 
-  var draw; 
-  var listener;
-  var helpTooltipElement;
-  var helpTooltip;
-  var measureTooltipElement;
-  var measureTooltip;
-  var geomCache;
-  var helpMsg = 'Click to start planning, double click to end';
+  let draw; 
+  let listener;
+  let helpTooltipElement;
+  let helpTooltip;
+  let measureTooltipElement;
+  let measureTooltip;
+  let geomCache;
+  let helpMsg = 'Click to start planning, double click to end';
 
   function setupSelectOptions(selectElement, iterations, multiplier, scaleFactor, selectedIteration, valueCorrection, formatterFunc) {
     Array.from({ length: iterations }, (x, i) => {
@@ -84,26 +82,29 @@
   let lon = searchParams.has("lon") ? searchParams.get("lon") : "16.5238";
   let lat = searchParams.has("lat") ? searchParams.get("lat") : "51.8320";
   let zoom = searchParams.has("z") ? searchParams.get("z") : "5";
+  let localTileUrl = searchParams.has("local_tile_url") ? searchParams.get("local_tile_url") : './tiles/{z}/{x}/{y}.png';
+  let remoteTileUrl =  searchParams.has("remote_tile_url") ? searchParams.get("remote_tile_url") : 'https://{a-c}.tile.openstreetmap.org/{z}/{x}/{y}.png';
+  let units = searchParams.has("log_units") ? searchParams.get("log_units") : "metric";
 
-  var osm = new ol.source.OSM({
+  let osm = new ol.source.OSM({
       attributions: [
         '&copy; <a href="https://github.com/rogalmic/">Michal R.</a>',
         ol.source.OSM.ATTRIBUTION
       ],
       wrapX: true,
       crossOrigin: null,
-      url: isLocalUrl ? localOsmUrl : remoteOsmUrl,
+      url: isLocalUrl ? localTileUrl : remoteTileUrl,
     });
 
-   osm.on('tileloaderror', ()=> osm.setUrl((osm.getUrls()[0] == localOsmUrl) ? remoteOsmUrl : localOsmUrl));
+   osm.on('tileloaderror', ()=> osm.setUrl((osm.getUrls()[0] == localTileUrl) ? remoteTileUrl : localTileUrl));
 
-  var raster = new ol.layer.Tile({
+  let raster = new ol.layer.Tile({
     source: osm
   });
 
-  var source = new ol.source.Vector();
+  let source = new ol.source.Vector();
 
-  var vector = new ol.layer.Vector({
+  let vector = new ol.layer.Vector({
     source: source,
     style: new ol.style.Style({
       fill: new ol.style.Fill({
@@ -137,19 +138,19 @@
   }
 
   function drawGreatCircle(feature) {
-    var projection = map.getView().getProjection();
-    var coordinates = feature.getGeometry().clone().transform(projection, 'EPSG:4326').getCoordinates();
-    var coords = [];
-    for (var i = 0; i < coordinates.length - 1 && Array.isArray(coordinates[0]); i++) {
-      var from = coordinates[i];
-      var to = coordinates[i + 1];
-      var arcGenerator = new arc.GreatCircle(
+    let projection = map.getView().getProjection();
+    let coordinates = feature.getGeometry().clone().transform(projection, 'EPSG:4326').getCoordinates();
+    let coords = [];
+    for (let i = 0; i < coordinates.length - 1 && Array.isArray(coordinates[0]); i++) {
+      let from = coordinates[i];
+      let to = coordinates[i + 1];
+      let arcGenerator = new arc.GreatCircle(
         { x: from[0], y: from[1] },
         { x: to[0], y: to[1] });
-      var arcLine = arcGenerator.Arc(100, { offset: 10 });
+      let arcLine = arcGenerator.Arc(100, { offset: 10 });
       arcLine.geometries.forEach(function (geom) { coords.push(geom.coords); });
     }
-    var line = new ol.geom.MultiLineString(coords);
+    let line = new ol.geom.MultiLineString(coords);
     line.transform('EPSG:4326', projection);
     return line;
   }
@@ -214,7 +215,7 @@
     measureTooltipElement.innerHTML = `${formatLength(geomCache, unitFactor)} ${metric ? 'km' : 'nm'} ${totalTime} min`;
   }
 
-  var pointerMoveHandler = function (evt) {
+  let pointerMoveHandler = function (evt) {
     if (evt.dragging) {
       return;
     }
@@ -223,7 +224,7 @@
     helpTooltip.setPosition(evt.coordinate);
   };
 
-  var map = new ol.Map({
+  let map = new ol.Map({
     layers: [raster, vector],
     target: 'map',
     view: new ol.View({
@@ -235,7 +236,7 @@
   map.on('pointermove', pointerMoveHandler);
 
   function formatLength(line, unitFactor = 1) {
-    var length = ol.sphere.getLength(line);
+    let length = ol.sphere.getLength(line);
     return Math.round(length / unitFactor / 1000);
   };
 
@@ -374,6 +375,7 @@
     addInteraction();
     createHelpTooltip();
     enableFeatures(false);
+    logUnits.value = units;
 
     setupSelectOptions(aircraftSpeed, 60, 5, 1.85, 20, 0, (v) => `${Math.round(v).toString().padStart(3, "0")}kts (${Math.round(v * 1.85)}km/h)`);
     setupSelectOptions(windSpeed, 60, 1, 1.85, 0, 0, (v) => `${Math.round(v).toString().padStart(2, "0")}kts (${Math.round(v * 1.85)}km/h)`);
