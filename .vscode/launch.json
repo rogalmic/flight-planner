@@ -5,9 +5,17 @@
     "version": "0.2.0",
     "configurations": [
         {
+            "type": "firefox",
+            "request": "launch",
+            "reAttach": true,
+            "name": "Launch locally in Firefox",
+            "file": "${workspaceFolder}/flight.html"
+
+        },
+        {
             "type": "chrome",
             "request": "launch",
-            "name": "Launch Chrome against localhost",
+            "name": "Launch locally in Chrome",
             "file": "${workspaceFolder}/flight.html",
             "disableNetworkCache": true
         }
