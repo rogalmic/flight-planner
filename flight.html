@@ -18,6 +18,7 @@
       .ol-tooltip { position: relative; background: rgba(0, 0, 0, 0.5); border-radius: 4px; color: white; padding: 4px 8px; opacity: 0.7; white-space: nowrap; }
       .ol-tooltip-measure { opacity: 1; font-weight: bold; }
       .ol-tooltip-static { opacity: 1; background-color: #9999BB; font-weight: bold; }
+      .ol-tooltip-info { font-size: 9px; cursor: pointer; }
     </style>
   </head>
   <body>
@@ -65,6 +66,8 @@
   let helpTooltip;
   let measureTooltipElement;
   let measureTooltip;
+  let infoTooltipElements;
+  let infoTooltips;
   let geomCache;
   let helpMsg = 'Click to start planning, double click to end';
 
@@ -244,6 +247,10 @@
     divLog.style.display = dataAvailable ? "block" : "none";
     queryWeather.disabled = !dataAvailable;
     queryForecast.disabled = !dataAvailable;
+
+    infoTooltipElements = [];
+    infoTooltips?.forEach(o => map.addOverlay(o));
+    infoTooltips = [];
   }
 
   function addInteraction() {
@@ -328,6 +335,25 @@
     map.addOverlay(measureTooltip);
   }
 
+  function createInfoTooltip(name, lon, lat, details, action) {
+    let infoTooltipElement = document.createElement('div');
+    infoTooltipElement.className = 'ol-tooltip .ol-tooltip-info';
+    infoTooltipElement.innerHTML = name;
+    infoTooltipElement.onmouseover = () => infoTooltipElement.innerHTML = details;
+    infoTooltipElement.onmouseout = () => infoTooltipElement.innerHTML = name;
+    infoTooltipElement.onclick = action;
+    let infoTooltip = new ol.Overlay({
+      element: infoTooltipElement,
+      offset: [15, 0],
+      positioning: 'center-left'
+    });
+    infoTooltip.setPosition(ol.proj.transform([lon, lat], 'EPSG:4326', 'EPSG:3857'));
+    map.addOverlay(infoTooltip);
+
+    infoTooltipElements.push(infoTooltipElement);
+    infoTooltips.push(infoTooltip);
+  }
+
   saveCsv.onclick = () => {
     let hiddenElement = document.createElement('a');
     hiddenElement.href = 'data:text/csv;charset=utf-8,' + encodeURI(logArea.value);
@@ -344,28 +370,60 @@
     }
   }
 
-  queryWeather.onclick = () => {
-    const radiusNm = 45;
-    const hoursBeforeNow = 1;
-    let urlArgs = geomCache.getCoordinates().map(c => ol.coordinate.format(ol.proj.transform(c, 'EPSG:3857', 'EPSG:4326'), '{x},{y}', 3));
-    urlArgs.unshift(radiusNm);
-    const url = `https://aviationweather.gov/adds/dataserver_current/httpparam?dataSource=metars&requestType=retrieve&format=xml&flightPath=${urlArgs.join(';')}&hoursBeforeNow=${hoursBeforeNow}`;
-    window.open(url, '_blank').focus();
-  }
-
   queryForecast.onclick = () => {
     calculateRoute();
   }
 
+  function getWeatherUrl()
+
   [queryWeather, queryForecast].forEach(e => e.onclick = ()=> {
+    if (infoTooltipElements.length != 0) {
+      infoTooltipElements = [];
+      infoTooltips.forEach(o => map.addOverlay(o));
+      infoTooltips = [];
+    }
+
     const radiusNm = 45;
     const hoursBeforeNow = 1;
-    const dataType = (e == queryWeather) ? "metars" : "tafs";
+    const dataType = (e == queryWeather) ? "metar" : "taf";
     const dataFormat = true ? "xml" : "csv";
     let urlArgs = geomCache.getCoordinates().map(c => ol.coordinate.format(ol.proj.transform(c, 'EPSG:3857', 'EPSG:4326'), '{x},{y}', 3));
     urlArgs.unshift(radiusNm);
-    const url = `https://aviationweather.gov/adds/dataserver_current/httpparam?dataSource=${dataType}&requestType=retrieve&format=${dataFormat}&flightPath=${urlArgs.join(';')}&hoursBeforeNow=${hoursBeforeNow}`;
-    window.open(url, '_blank').focus();
+    const url = `https://aviationweather.gov/adds/dataserver_current/httpparam?dataSource=${dataType}s&requestType=retrieve&format=${dataFormat}&flightPath=${urlArgs.join(';')}&hoursBeforeNow=${hoursBeforeNow}`;
+    const xhttp = new XMLHttpRequest(); 
+    xhttp.onreadystatechange = () => {
+      if (xhttp.readyState == XMLHttpRequest.DONE && xhttp.status == 200) {
+        let xml = xhttp.responseXML;
+        let text = xhttp.responseText;
+
+        let infos = Array.from(xml.getElementsByTagName(dataType.toUpperCase()))
+          .map(t => ({
+            t: t, 
+            raw: `${t.getElementsByTagName("raw_text")[0].innerHTML}<br/>${t.getElementsByTagName("flight_category")[0].innerHTML}`,
+            lat: Number.parseFloat(t.getElementsByTagName("latitude")[0].innerHTML),
+            lon: Number.parseFloat(t.getElementsByTagName("longitude")[0].innerHTML),
+            name: t.getElementsByTagName("station_id")[0].innerHTML
+          }))
+          .filter((value, index, self) => self.map(x => x.name).indexOf(value.name) == index);
+        infos.forEach(i => {
+          let action = () => {
+            //alert(new XMLSerializer().serializeToString(i.t));
+
+            // let w = window.open(``, ``, "toolbar=no,location=no,directories=no,status=no,menubar=no,scrollbars=yes,resizable=yes,width=780,height=400");
+            // w.title = `${dataType.toUpperCase} ${i.name}`;
+            // w.document.open('content-type: text/xml');
+            // w.document.
+            // let xmlText = `<?xml version="1.0" encoding="UTF-8" standalone="no" ?>\n${new XMLSerializer().serializeToString(i.t)}`;
+            // w.document.body.innerText(xmlText); 
+            // w.document.close(); 
+            // w.focus();
+          };
+          createInfoTooltip(i.name, i.lon, i.lat, i.raw, action);
+        });
+      }
+    };
+    xhttp.open("GET", `https://cors-anywhere.herokuapp.com/${encodeURI(url)}`, true);
+    xhttp.send();
   });
 
 
