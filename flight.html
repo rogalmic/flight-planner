@@ -14,7 +14,7 @@
       div#options > select#aircraft_speed { width: 74px;}
       div#options > select#wind_speed { width: 68px;}
       div#log { position: absolute; left: 50px; top: 28px; right: 0; height:180px; z-index:1; background: #9999BB; overflow: hidden; }
-      div#log > textarea#log { width: 100%; height: 180px; }
+      div#log > textarea#log { width: 100%; height: 172px; }
       .ol-tooltip { position: relative; background: rgba(0, 0, 0, 0.5); border-radius: 4px; color: white; padding: 4px 8px; opacity: 0.7; white-space: nowrap; }
       .ol-tooltip-measure { opacity: 1; font-weight: bold; }
       .ol-tooltip-static { opacity: 1; background-color: #9999BB; font-weight: bold; }
@@ -35,6 +35,10 @@
       <select id="log_units">
         <option value="metric">km,km/h</option>
         <option value="alternative">nm,kts</option>
+      </select>
+      <select id="tile_source">
+        <option value="local">Local tiles</option>
+        <option value="remote">Remote tiles</option>
       </select>
       <input type="button" id="path_weather" value="&#x2608; Metar"/>
       <input type="button" id="path_forecast" value="&#x26C5; Taf" />
@@ -58,6 +62,7 @@
   const queryForecast = document.querySelector("input#path_forecast");
   const saveCsv = document.querySelector("input#save_csv");
   const toggleLog = document.querySelector("input#toggle_results");
+  const tileSource = document.querySelector("select#tile_source");
 
   let draw; 
   let listener;
@@ -95,8 +100,6 @@
       crossOrigin: null,
       url: isLocalUrl ? localTileUrl : remoteTileUrl,
     });
-
-   osm.on('tileloaderror', ()=> osm.setUrl((osm.getUrls()[0] == localTileUrl) ? remoteTileUrl : localTileUrl));
 
   let raster = new ol.layer.Tile({
     source: osm
@@ -371,11 +374,16 @@
 
   [aircraftSpeed, windSpeed, windDirection, magneticDeclination,logUnits].forEach(e => e.onchange = ()=> calculateRoute());
 
+  tileSource.onchange = () =>{
+    osm.setUrl((tileSource.value == "local") ? localTileUrl : remoteTileUrl);
+  };  
+
   window.onload = () => {
     addInteraction();
     createHelpTooltip();
     enableFeatures(false);
     logUnits.value = units;
+    tileSource.value = isLocalUrl ? "local" : "remote";
 
     setupSelectOptions(aircraftSpeed, 60, 5, 1.85, 20, 0, (v) => `${Math.round(v).toString().padStart(3, "0")}kts (${Math.round(v * 1.85)}km/h)`);
     setupSelectOptions(windSpeed, 60, 1, 1.85, 0, 0, (v) => `${Math.round(v).toString().padStart(2, "0")}kts (${Math.round(v * 1.85)}km/h)`);
