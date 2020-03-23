@@ -4,7 +4,7 @@
 
 ## Features
 
-* Flight planning with wind and magnetic declination correction with greart circle path for longer routes
+* Flight planning with wind and magnetic declination correction with great circle path for longer routes
 * Output in `km/h`, `km` or `nm`, `kts`, input via selection of value (both unit systems shown)\
 ![Input units](./img/units.png "Input units")
 * Background map png tiles in `EPSG:3857` format, like from https://www.openflightmaps.org/ (possibility to download ~1GB zip with tiles for given region, then paste `slippyTiles_original.zip\original\merged\256\latest` contents to local `./tiles` folder)
@@ -17,12 +17,23 @@
 * Open `METAR` and `TAF` for given route in separate page (https://aviationweather.gov/adds/), follows great circle path
 * Export plan to [CSV file](https://en.wikipedia.org/wiki/Comma-separated_values) for further adjustments in external tools
 
+## Reference
+
+### URL search parameters
+* `remote_tile_url` - remote tile source url with z,x,y coordinates embedded, like `https://site.org/{z}/{x}/{y}.png`
+* `local_tile_url` - local tile source url with z,x,y coordinates embedded, like `https://site.org/{z}/{x}/{y}.png`, default for local execution - `file:///` site scheme
+* `log_units` - the result `CSV` output units, `metric` (km/h, km) or `alternative` (kt, nm)
+* `z` - the initial `EPSG:3857` zoom level, defaults to `5`
+* `lon` - initial map's center longitude, defaults to `16.5238`
+* `lat` - initial map's center latitude, defaults to `51.8320`
+
 ## Samples
 
 * [OSM MAP VERSION](https://rogalmic.github.io/flight-planner/flight.html?log_units=metric)
 * [OSM MAP VERSION (results in nm and kts, US centered)](https://rogalmic.github.io/flight-planner/flight.html?log_units=alternative&z=5&lon=-97.479&lat=39.408)
 * [WIKIMEDIA MAP VERSION](https://rogalmic.github.io/flight-planner/flight.html?remote_tile_url=https%3A%2F%2Fmaps.wikimedia.org%2Fosm-intl%2F%7Bz%7D%2F%7Bx%7D%2F%7By%7D.png)
 * [NO LABELS MAP VERSION](https://rogalmic.github.io/flight-planner/flight.html?remote_tile_url=https%3A%2F%2Ftiles.wmflabs.org%2Fosm-no-labels%2F%7Bz%7D%2F%7Bx%7D%2F%7By%7D.png)
+* [OPENFLIGHTMAPS MAP VERSION](https://rogalmic.github.io/flight-planner/flight.html?remote_tile_url=https%3A%2F%2Fsnapshots.openflightmaps.org%2Flive%2F2003%2Ftiles%2Fworld%2Fepsg3857%2Faero%2F512%2Flatest%2F%7Bz%7D%2F%7Bx%7D%2F%7By%7D.png&z=7)
 
 ## Objectives
 
