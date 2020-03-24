@@ -34,7 +34,7 @@
       <label>Units</label>
       <select id="log_units">
         <option value="metric">km,km/h</option>
-        <option value="alternative">nm,kts</option>
+        <option value="nautical">nm,kts</option>
       </select>
       <select id="tile_source">
         <option value="local">Local tiles</option>
@@ -50,6 +50,8 @@
   <script>
   const KmInNm = 1.852;
   const isLocalUrl = window.location.protocol == "file:";
+  const color1 = 'rgba(255, 255, 255, 0.2)';
+  const color2 = '#9999BB';
 
   const logArea = document.querySelector("textarea#log");
   const divLog = document.querySelector("div#log");
@@ -111,20 +113,24 @@
     source: source,
     style: new ol.style.Style({
       fill: new ol.style.Fill({
-        color: 'rgba(255, 255, 255, 0.2)'
+        color: color1
       }),
       stroke: new ol.style.Stroke({
-        color: '#9999BB',
+        color: color2,
         width: 3
       }),
       image: new ol.style.Circle({
         radius: 7,
         fill: new ol.style.Fill({
-          color: '#9999BB'
+          color: color2
         })
       }),
       geometry: drawGreatCircle,
     })
+  });
+
+  let scaleControl = new ol.control.ScaleLine({ 
+    minWidth : 128 
   });
 
   function getDriftAngle(aircraftDirection, navigationalWindDirection, aircraftSpeed, windSpeed) {
@@ -163,6 +169,7 @@
 
     let outFormatRow = (strArr) => strArr.map(s => s.padEnd(18, " ")).join(";") + "\n";
 
+    scaleControl.setUnits(logUnits.value);
     const metric = logUnits.value == 'metric';
     logArea.value = outFormatRow([`FROM`, `TO`, `DIST(${metric ? 'km' : 'nm'})`, `TRACK(${'deg'})`, `HEADING(${'deg'})`, `MAGNETIC(${'deg'})`, `SPEED(${metric ? 'km/h' : 'kts'})`, `TIME(${'min'})`]);
 
@@ -236,6 +243,8 @@
     })
   });
 
+  map.addControl(scaleControl);
+
   map.on('pointermove', pointerMoveHandler);
 
   function formatLength(line, unitFactor = 1) {
@@ -255,7 +264,7 @@
       type: 'LineString',
       style: new ol.style.Style({
         fill: new ol.style.Fill({
-          color: 'rgba(255, 255, 255, 0.2)'
+          color: color1
         }),
         stroke: new ol.style.Stroke({
           color: 'rgba(0, 0, 0, 0.5)',
@@ -268,7 +277,7 @@
             color: 'rgba(0, 0, 0, 0.7)'
           }),
           fill: new ol.style.Fill({
-            color: 'rgba(255, 255, 255, 0.2)'
+            color: color1
           })
         }),
         geometry: drawGreatCircle,
