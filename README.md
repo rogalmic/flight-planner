@@ -20,20 +20,27 @@
 ## Reference
 
 ### URL search parameters
-* `remote_tile_url` - remote tile source url with z,x,y coordinates embedded, like `https://site.org/{z}/{x}/{y}.png`
-* `local_tile_url` - local tile source url with z,x,y coordinates embedded, like `https://site.org/{z}/{x}/{y}.png`, default for local execution - `file:///` site scheme
-* `log_units` - the result `CSV` output units, `metric` (km/h, km) or `alternative` (kt, nm)
+* `remote_tile_url` - remote tile source url with z,x,y coordinates embedded, like `https://site.org/{z}/{x}/{y}.png`, defaults to `https://{a-c}.tile.openstreetmap.org/{z}/{x}/{y}.png`
+* `local_tile_url` - local tile source url with z,x,y coordinates embedded, like `https://site.org/{z}/{x}/{y}.png`, default for local execution - `file:///` site scheme, defaults to `./tiles/{z}/{x}/{y}.png`
+* `log_units` - the result `CSV` output units, `metric` (km/h, km) or `nautical` (kt, nm)
 * `z` - the initial `EPSG:3857` zoom level, defaults to `5`
 * `lon` - initial map's center longitude, defaults to `16.5238`
 * `lat` - initial map's center latitude, defaults to `51.8320`
 
+### Local vs remote tiles concept
+The assumption is that local tiles, by default located in `./tiles` next to the html file, can be used as alternative background map layer. User can download the offline version from https://github.com/rogalmic/flight-planner/releases , which contains some tiles up to zoom level 6, then add more zoom levels for specific location from any source. This way planning can be done in offline scenario. User can also set 2 different urls for local/remote tiles, then switch then during planning (topography vs airspace).   
+
+### Weather info
+Since this project goal is to be simple calculation helper, the wind is set manually. However once route is set, there is a way to query METARs and TAFs for given route. User needs to manually read the weather info and input wind direction and speed.
+
 ## Samples
 
 * [OSM MAP VERSION](https://rogalmic.github.io/flight-planner/flight.html?log_units=metric)
-* [OSM MAP VERSION (results in nm and kts, US centered)](https://rogalmic.github.io/flight-planner/flight.html?log_units=alternative&z=5&lon=-97.479&lat=39.408)
+* [OSM MAP VERSION (results in nm and kts, US centered)](https://rogalmic.github.io/flight-planner/flight.html?log_units=nautical&z=5&lon=-97.479&lat=39.408)
 * [WIKIMEDIA MAP VERSION](https://rogalmic.github.io/flight-planner/flight.html?remote_tile_url=https%3A%2F%2Fmaps.wikimedia.org%2Fosm-intl%2F%7Bz%7D%2F%7Bx%7D%2F%7By%7D.png)
 * [NO LABELS MAP VERSION](https://rogalmic.github.io/flight-planner/flight.html?remote_tile_url=https%3A%2F%2Ftiles.wmflabs.org%2Fosm-no-labels%2F%7Bz%7D%2F%7Bx%7D%2F%7By%7D.png)
 * [OPENFLIGHTMAPS MAP VERSION](https://rogalmic.github.io/flight-planner/flight.html?remote_tile_url=https%3A%2F%2Fsnapshots.openflightmaps.org%2Flive%2F2003%2Ftiles%2Fworld%2Fepsg3857%2Faero%2F512%2Flatest%2F%7Bz%7D%2F%7Bx%7D%2F%7By%7D.png&z=7)
+* [OPENTOPOMAP MAP VERSION](https://rogalmic.github.io/flight-planner/flight.html?remote_tile_url=https%3A%2F%2Ftile.opentopomap.org%2F%7Bz%7D%2F%7Bx%7D%2F%7By%7D.png)
 
 ## Objectives
 
