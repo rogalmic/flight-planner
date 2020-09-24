@@ -18,6 +18,13 @@
             "name": "Launch locally in Chrome",
             "file": "${workspaceFolder}/flight.html",
             "disableNetworkCache": true
+        },
+        {
+            "type": "edge",
+            "request": "launch",
+            "name": "Launch locally in Edge",
+            "file": "${workspaceFolder}/flight.html",
+            "disableNetworkCache": true
         }
     ]
 }
