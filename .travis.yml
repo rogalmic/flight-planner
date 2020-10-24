@@ -18,7 +18,7 @@ install:
 - npm install
 
 script:
-- node ./node_modules/osm-tile-downloader/osm-tile-downloader.js --start-zoom-level 2 --end-zoom-level 6 --url https://b.tile.openstreetmap.org/{z}/{x}/{y}.png --output-dir ./tiles/ --delay 10 --yes
+- node ./node_modules/osm-tile-downloader/osm-tile-downloader.js --start-zoom-level 2 --end-zoom-level 6 --url https://b.tile.openstreetmap.org/{z}/{x}/{y}.png --output-dir ./tiles/ --delay 10 --yes --max-retries 5
 #- node ./node_modules/osm-tile-downloader/osm-tile-downloader.js --start-zoom-level 7 --end-zoom-level 8 --url https://b.tile.openstreetmap.org/{z}/{x}/{y}.png --output-dir ./tiles/ --delay 10 --yes --geolimit 13.0:55.0:24.0:46.0
 - zip -r /tmp/flight-planner.zip ./src/ ./tiles/ flight.html LICENSE
 - mv /tmp/flight-planner.zip ./flight-planner.zip
