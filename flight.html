@@ -8,6 +8,7 @@
     <style>
       html, body { height: 99%; font-family: monospace; font-size: 14px; }
       input, textarea, select { font-family: monospace; font-weight: bold; font-size: 14px; background: white;}
+      input, select {border: 1px solid gray !important;}
       div#map { position: absolute; left:0; top: 0; bottom: 0; right: 0; width: 100%; height: 100%; }
       div#options { position: absolute; left:50px; top: 0; right: 0; height:28px; line-height: 28px; z-index:1; background: #9999BB;  overflow: hidden; text-align: center;}
       div#options > label { font-weight: bold; color: white;}
@@ -23,26 +24,27 @@
   <body>
     <div id="map"></div>
     <div id="options">
-      <input type="button" id="toggle_results" value="&#8661; Logs" />
-      <label>TAS</label>
-      <select id="aircraft_speed"></select>
-      <label>Wind</label>
-      <select id="wind_direction"></select>
+      <input type="button" id="toggle_results" value="&#8661; Logs" title="Toggle calculation results pane" />
+      <label title="True Air Speed">TAS</label>
+      <select id="aircraft_speed" title="True Air Speed"></select>
+      <label title="Wind data in METAR format">Wind</label>
+      <select id="wind_direction" title="Wind data in METAR format"></select>
       <select id="wind_speed"></select>
-      <label>Decl</label>
-      <select id="magnetic_declination"></select>
-      <label>Units</label>
-      <select id="log_units">
+      <label title="Magnetic declination">Decl</label>
+      <select id="magnetic_declination" title="Magnetic declination"></select>
+      <label title="Claculation results' units">Units</label>
+      <select id="log_units" title="Claculation results' units">
         <option value="metric">km,km/h</option>
         <option value="nautical">nm,kts</option>
       </select>
-      <select id="tile_source">
+      <select id="tile_source" title="Background map tile source - see github page for details">
         <option value="local">Local tiles</option>
         <option value="remote">Remote tiles</option>
       </select>
-      <input type="button" id="path_weather" value="&#x2608; Metar"/>
-      <input type="button" id="path_forecast" value="&#x26C5; Taf" />
+      <input type="button" id="path_weather" value="&#x2608; METAR" title="Show METAR for current route"/>
+      <input type="button" id="path_forecast" value="&#x26C5; TAF" title="Show TAF for current route"/>
       <input type="button" id="save_csv" value="&#9636; To CSV" />
+      <input type="button" id="help" value="&#9937; Help" />      
     </div>
     <div id="log">
       <textarea id="log" readonly ></textarea>
@@ -65,6 +67,7 @@
   const saveCsv = document.querySelector("input#save_csv");
   const toggleLog = document.querySelector("input#toggle_results");
   const tileSource = document.querySelector("select#tile_source");
+  const help = document.querySelector("input#help");
 
   let draw; 
   let listener;
@@ -385,7 +388,12 @@
 
   tileSource.onchange = () =>{
     osm.setUrl((tileSource.value == "local") ? localTileUrl : remoteTileUrl);
-  };  
+  };
+
+  help.onclick = () => {
+    const url = `https://github.com/rogalmic/flight-planner/blob/master/README.md`;
+    window.open(url, '_blank').focus();
+  }
 
   window.onload = () => {
     addInteraction();
@@ -394,7 +402,7 @@
     logUnits.value = units;
     tileSource.value = isLocalUrl ? "local" : "remote";
 
-    setupSelectOptions(aircraftSpeed, 60, 5, 1.85, 20, 0, (v) => `${Math.round(v).toString().padStart(3, "0")}kts (${Math.round(v * 1.85)}km/h)`);
+    setupSelectOptions(aircraftSpeed, 60, 5, 1.85, 16, 0, (v) => `${Math.round(v).toString().padStart(3, "0")}kts (${Math.round(v * 1.85)}km/h)`);
     setupSelectOptions(windSpeed, 60, 1, 1.85, 0, 0, (v) => `${Math.round(v).toString().padStart(2, "0")}kts (${Math.round(v * 1.85)}km/h)`);
     setupSelectOptions(windDirection, 36, 10, 1, 0, -180, (v) => `${Math.round(v).toString().padStart(3, "0")}deg`);
     setupSelectOptions(magneticDeclination, 60, 1, 1, 30, -30, (v) => `${Math.round(v-30)}deg`);

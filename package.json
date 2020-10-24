@@ -1,6 +1,6 @@
 {
   "name": "flight-planner",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "description": "VFR Flight Planner",
   "main": "flight.html",
   "scripts": {},
