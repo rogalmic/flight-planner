@@ -7,10 +7,8 @@
         {
             "type": "firefox",
             "request": "launch",
-            "reAttach": true,
             "name": "Launch locally in Firefox",
             "file": "${workspaceFolder}/flight.html"
-
         },
         {
             "type": "chrome",
