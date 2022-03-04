@@ -57,7 +57,6 @@ Since this project goal is to be simple calculation helper, the wind is set manu
 * Really easy, just try :)
 * `Visual Studio Code`
 * `Git`
-* `Debugger for Chrome` or `Debugger for Chrome` VsCode extension
 
  1. Get repo \
 
