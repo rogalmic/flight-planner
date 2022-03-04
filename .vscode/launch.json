@@ -7,20 +7,33 @@
         {
             "type": "firefox",
             "request": "launch",
-            "name": "Launch locally in Firefox",
+            "name": "Launch locally in Firefox (requires extension)",
             "file": "${workspaceFolder}/flight.html"
         },
         {
             "type": "chrome",
             "request": "launch",
-            "name": "Launch locally in Chrome",
+            "name": "Launch locally in Chrome (deprecated)",
             "file": "${workspaceFolder}/flight.html",
             "disableNetworkCache": true
         },
         {
             "type": "edge",
             "request": "launch",
-            "name": "Launch locally in Edge",
+            "name": "Launch locally in Edge (deprecated)",
+            "file": "${workspaceFolder}/flight.html",
+            "disableNetworkCache": true
+        },
+        {
+            "type": "pwa-msedge",
+            "request": "launch",
+            "name": "Launch locally in Edge (native VsCode)",
+            "file": "${workspaceFolder}/flight.html",
+            "disableNetworkCache": true
+        },        {
+            "type": "pwa-chrome",
+            "request": "launch",
+            "name": "Launch locally in Chrome (native VsCode)",
             "file": "${workspaceFolder}/flight.html",
             "disableNetworkCache": true
         }
