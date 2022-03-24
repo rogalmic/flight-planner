@@ -313,6 +313,20 @@
 
         enableFeatures(true);
       });
+
+    const modify = new ol.interaction.Modify({source: source});
+    map.addInteraction(modify);
+
+    modify.on('modifystart',
+      (evt) => {
+        enableFeatures(false);
+      });
+
+    modify.on('modifyend',
+      () => {
+        calculateRoute();
+        enableFeatures(true);
+      });
   }
 
   function createHelpTooltip() {
