@@ -132,6 +132,7 @@
     <input type="button" id="track_adsb" value="ADSB" title="Open ADSB tracker" />
     <input type="button" id="save_csv" value="To CSV" title="Save results as *.csv file" />
     <input type="button" id="help" value="Help" title="Open help page" />
+    <select id="history" title="Planning history"></select>
   </div>
   <div id="log">
     <textarea id="log" readonly></textarea>
@@ -141,6 +142,7 @@
     const isLocalUrl = () => window.location.protocol == "file:";
     const color1 = 'rgba(255, 255, 255, 0.2)';
     const color2 = '#9999BB';
+    const planHistorySize = 10;
 
     const logArea = document.querySelector("textarea#log");
     const divLog = document.querySelector("div#log");
@@ -156,6 +158,7 @@
     const toggleLog = document.querySelector("input#toggle_results");
     const tileSource = document.querySelector("select#tile_source");
     const help = document.querySelector("input#help");
+    const planHistory = document.querySelector("select#history");
 
     let draw;
     let listener;
@@ -163,19 +166,20 @@
     let helpTooltip;
     let measureTooltipElement;
     let measureTooltip;
-    let geomCache;
+    let currentGeometry;
     let featuresCache;
     let helpMsg = 'Click to start planning, double click to end';
     let geoJson = new ol.format.GeoJSON();
 
     try {
-      if (localStorage.getItem('featuresCache')) {
-        featuresCache = geoJson.readFeature(localStorage.getItem('featuresCache'));
-        geomCache = featuresCache.getGeometry();
+      let storageFeaturesCache = localStorage.getItem('featuresCache');
+      featuresCache = storageFeaturesCache ? JSON.parse(storageFeaturesCache).map(s => geoJson.readFeature(s)) : [];
+      if(featuresCache.length > 0) {
+        currentGeometry = featuresCache[0].getGeometry();
       }
     } catch (e) {
       localStorage.clear();
-      console.error(e);
+      console.warn(e);
     }
 
     function setupSelectOptions(selectElement, iterations, multiplier, scaleFactor, selectedIteration, valueCorrection, formatterFunc) {
@@ -193,6 +197,13 @@
           tileSource.add(new Option(tileUrl));
       }
       tileSource.value = isLocalUrl() ? localTileUrls[0] : remoteTileUrls[0];
+    }
+
+    function setupHistorySelect() {
+      for (let i =0 ; i< planHistorySize; i++) {
+        planHistory.add(new Option(`#${i}`, `${i}`));
+      }
+      tileSource.value = '0';
     }
 
     let searchParams = new URLSearchParams(window.location.search);
@@ -217,8 +228,8 @@
     });
 
     let source = new ol.source.Vector();
-    if (featuresCache) {
-      source.addFeature(featuresCache);
+    if (featuresCache.length > 0) {
+      source.addFeature(featuresCache[0]);
     }
 
     let vector = new ol.layer.Vector({
@@ -285,12 +296,12 @@
       const metric = logUnits.value == 'metric';
       logArea.value = outFormatRow([`FROM`, `TO`, `DIST(${metric ? 'km' : 'nm'})`, `TRACK(${'deg'})`, `HEADING(${'deg'})`, `MAGNETIC(${'deg'})`, `SPEED(${metric ? 'km/h' : 'kts'})`, `TIME(${'min'})`]);
 
-      if (!geomCache) return;
+      if (!currentGeometry) return;
 
       const unitFactor = metric ? 1 : KmInNm;
 
       logArea.value +=
-        geomCache.getCoordinates()
+        currentGeometry.getCoordinates()
           .map((c, i, a) => {
             if (i >= 1) {
 
@@ -330,7 +341,7 @@
           .join("");
 
       totalTime = (totalTime <= 0) ? Number.POSITIVE_INFINITY : Math.round(totalTime);
-      const totalLength = Math.round(getScaledLength(geomCache, unitFactor));
+      const totalLength = Math.round(getScaledLength(currentGeometry, unitFactor));
 
       logArea.value += `\n`;
       logArea.value += outFormatRow([`-------`, `-------`, `${totalLength}`, `-------`, `-------`, `-------`, `-------`, `${totalTime}`]);
@@ -366,7 +377,12 @@
     };
 
     function enableFeatures(dataAvailable) {
-      divLog.style.display = dataAvailable ? "block" : "none";
+      measureTooltipElement.className = dataAvailable 
+        ? 'ol-tooltip ol-tooltip-static' 
+        : 'ol-tooltip ol-tooltip-measure';
+      helpTooltipElement.className = 'ol-tooltip';
+
+      divLog.style.display = dataAvailable ? 'block' : 'none';
       queryWeather.disabled = !dataAvailable;
       queryForecast.disabled = !dataAvailable;
     }
@@ -400,30 +416,32 @@
 
       draw.on('drawstart',
         (evt) => {
-          createMeasureTooltip();
-
+          measureTooltipElement.className = 'ol-tooltip ol-tooltip-measure';
+          helpTooltipElement.style.display = 'none';
           source.getFeatures().forEach(f => source.removeFeature(f));
-          map.getOverlays().forEach(o => map.removeOverlay(o));
 
           enableFeatures(false);
 
           listener = evt.feature.getGeometry().on('change', function (evt) {
-            geomCache = evt.target;
-            tooltipCoord = geomCache.getLastCoordinate();
-            calculateRoute();
+            currentGeometry = evt.target;
+            tooltipCoord = currentGeometry.getLastCoordinate();
             measureTooltip.setPosition(tooltipCoord);
+            calculateRoute();
           });
         });
 
       draw.on('drawend',
         (evt) => {
-          let serializedFeature = geoJson.writeFeature(evt.feature);
+          featuresCache = [evt.feature, ...featuresCache];
+          if (featuresCache.length > planHistorySize) featuresCache.length = planHistorySize;
+          let serializedFeature = JSON.stringify([...featuresCache.map(f => geoJson.writeFeature(f))]);
           localStorage.setItem('featuresCache', serializedFeature);
 
           measureTooltipElement.className = 'ol-tooltip ol-tooltip-static';
           measureTooltip.setOffset([0, -7]);
           ol.Observable.unByKey(listener);
 
+          calculateRoute();
           enableFeatures(true);
         });
 
@@ -437,21 +455,20 @@
 
       modify.on('modifyend',
         () => {
+
+          let serializedFeature = JSON.stringify([...featuresCache.map(f => geoJson.writeFeature(f))]);
+          localStorage.setItem('featuresCache', serializedFeature);
+
+          measureTooltipElement.className = 'ol-tooltip ol-tooltip-static';
+          measureTooltip.setOffset([0, -7]);
+
           calculateRoute();
           enableFeatures(true);
         });
     }
 
     function createHelpTooltip() {
-      if (helpTooltipElement) {
-        helpTooltipElement.parentNode.removeChild(helpTooltipElement);
-      }
       helpTooltipElement = document.createElement('div');
-      helpTooltipElement.className = 'ol-tooltip';
-
-      if(helpTooltip) {
-        map.removeOverlay(helpTooltip);
-      }
 
       helpTooltip = new ol.Overlay({
         element: helpTooltipElement,
@@ -462,15 +479,7 @@
     }
 
     function createMeasureTooltip() {
-      if (measureTooltipElement) {
-        measureTooltipElement.parentNode.removeChild(measureTooltipElement);
-      }
       measureTooltipElement = document.createElement('div');
-      measureTooltipElement.className = 'ol-tooltip ol-tooltip-measure';
-
-      if(measureTooltip) {
-        map.removeOverlay(measureTooltip);
-      }
 
       measureTooltip = new ol.Overlay({
         element: measureTooltipElement,
@@ -499,7 +508,7 @@
     queryWeather.onclick = () => {
       const radiusNm = 45;
       const hoursBeforeNow = 1;
-      let urlArgs = geomCache.getCoordinates().map(c => ol.coordinate.format(ol.proj.transform(c, 'EPSG:3857', 'EPSG:4326'), '{x},{y}', 3));
+      let urlArgs = currentGeometry.getCoordinates().map(c => ol.coordinate.format(ol.proj.transform(c, 'EPSG:3857', 'EPSG:4326'), '{x},{y}', 3));
       urlArgs.unshift(radiusNm);
       const url = `https://aviationweather.gov/adds/dataserver_current/httpparam?dataSource=metars&requestType=retrieve&format=xml&flightPath=${urlArgs.join(';')}&hoursBeforeNow=${hoursBeforeNow}`;
       window.open(url, '_blank').focus();
@@ -518,7 +527,7 @@
       const hoursBeforeNow = 1;
       const dataType = (e == queryWeather) ? "metars" : "tafs";
       const dataFormat = true ? "xml" : "csv";
-      let urlArgs = geomCache.getCoordinates().map(c => ol.coordinate.format(ol.proj.transform(c, 'EPSG:3857', 'EPSG:4326'), '{x},{y}', 3));
+      let urlArgs = currentGeometry.getCoordinates().map(c => ol.coordinate.format(ol.proj.transform(c, 'EPSG:3857', 'EPSG:4326'), '{x},{y}', 3));
       urlArgs.unshift(radiusNm);
       const url = `https://aviationweather.gov/adds/dataserver_current/httpparam?dataSource=${dataType}&requestType=retrieve&format=${dataFormat}&flightPath=${urlArgs.join(';')}&hoursBeforeNow=${hoursBeforeNow}`;
       window.open(url, '_blank').focus();
@@ -531,6 +540,17 @@
       osm.setUrl(tileSource.value);
     };
 
+    planHistory.onchange = () => {
+      source.getFeatures().forEach(f => source.removeFeature(f));
+      let currentFeature = featuresCache[parseInt(planHistory.value)];
+      source.addFeature(currentFeature);
+      currentGeometry = currentFeature.getGeometry();
+      tooltipCoord = currentGeometry.getLastCoordinate();
+      measureTooltip.setPosition(tooltipCoord);
+      measureTooltip.setOffset([0, -7]);
+      calculateRoute();
+    };
+
     help.onclick = () => {
       const url = `https://github.com/rogalmic/flight-planner/blob/master/README.md`;
       window.open(url, '_blank').focus();
@@ -538,17 +558,6 @@
 
     window.onload = () => {
       addInteraction();
-      createHelpTooltip();
-      if (geomCache) {
-        createMeasureTooltip();
-        tooltipCoord = geomCache.getLastCoordinate();
-        measureTooltip.setPosition(tooltipCoord);
-        measureTooltipElement.className = 'ol-tooltip ol-tooltip-static';
-        measureTooltip.setOffset([0, -7]);
-        enableFeatures(true);
-      } else {
-        enableFeatures(false);
-      }
 
       logUnits.value = units;
 
@@ -558,6 +567,19 @@
       setupSelectOptions(magneticDeclination, 60, 1, 1, 30, -30, (v) => `${Math.round(v - 30)}deg`);
 
       setupTileSelect();
+      setupHistorySelect();
+
+      createHelpTooltip();
+      createMeasureTooltip();
+
+      if (currentGeometry) {
+        tooltipCoord = currentGeometry.getLastCoordinate();
+        measureTooltip.setPosition(tooltipCoord);
+        measureTooltip.setOffset([0, -7]);
+        enableFeatures(true);
+      } else {
+        enableFeatures(false);
+      }
 
       calculateRoute();
     };
