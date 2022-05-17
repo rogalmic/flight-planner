@@ -2,7 +2,7 @@
 <html lang="en">
 
 <head>
-  <title>VFR Flight Planning</title>
+  <title>&#9992; VFR Flight Planning</title>
   <script src="./src/ol.js"></script>
   <script src="./src/arc.js"></script>
   <link rel="stylesheet" href="./src/ol.css">
@@ -53,7 +53,8 @@
       z-index: 1;
       background: #9999BB;
       overflow: hidden;
-      text-align: center;
+      text-align: left;
+      padding-left: 4px;
     }
 
     div#options>label {
@@ -111,7 +112,7 @@
 <body>
   <div id="map"></div>
   <div id="options">
-    <input type="button" id="toggle_results" value="&#8661; Logs" title="Toggle calculation results pane" />
+    <input type="button" id="toggle_results" value="Logs" title="Toggle calculation results pane" />
     <label title="True Air Speed">TAS</label>
     <select id="aircraft_speed" title="True Air Speed"></select>
     <label title="Wind data in METAR format">Wind</label>
@@ -126,10 +127,11 @@
     </select>
     <select id="tile_source" title="Background map tile source - see github page for details">
     </select>
-    <input type="button" id="path_weather" value="&#x2608; METAR" title="Show METAR for current route" />
-    <input type="button" id="path_forecast" value="&#x26C5; TAF" title="Show TAF for current route" />
-    <input type="button" id="save_csv" value="&#9636; To CSV" title="Save results as *.csv file" />
-    <input type="button" id="help" value="&#9937; Help" title="Open help page" />
+    <input type="button" id="path_weather" value="METAR" title="Show METAR for current route" />
+    <input type="button" id="path_forecast" value="TAF" title="Show TAF for current route" />
+    <input type="button" id="track_adsb" value="ADSB" title="Open ADSB tracker" />
+    <input type="button" id="save_csv" value="To CSV" title="Save results as *.csv file" />
+    <input type="button" id="help" value="Help" title="Open help page" />
   </div>
   <div id="log">
     <textarea id="log" readonly></textarea>
@@ -149,6 +151,7 @@
     const logUnits = document.querySelector("select#log_units");
     const queryWeather = document.querySelector("input#path_weather");
     const queryForecast = document.querySelector("input#path_forecast");
+    const trackAdsb = document.querySelector("input#track_adsb");
     const saveCsv = document.querySelector("input#save_csv");
     const toggleLog = document.querySelector("input#toggle_results");
     const tileSource = document.querySelector("select#tile_source");
@@ -161,7 +164,19 @@
     let measureTooltipElement;
     let measureTooltip;
     let geomCache;
+    let featuresCache;
     let helpMsg = 'Click to start planning, double click to end';
+    let geoJson = new ol.format.GeoJSON();
+
+    try {
+      if (localStorage.getItem('featuresCache')) {
+        featuresCache = geoJson.readFeature(localStorage.getItem('featuresCache'));
+        geomCache = featuresCache.getGeometry();
+      }
+    } catch (e) {
+      localStorage.clear();
+      console.error(e);
+    }
 
     function setupSelectOptions(selectElement, iterations, multiplier, scaleFactor, selectedIteration, valueCorrection, formatterFunc) {
       Array.from({ length: iterations }, (x, i) => {
@@ -202,6 +217,9 @@
     });
 
     let source = new ol.source.Vector();
+    if (featuresCache) {
+      source.addFeature(featuresCache);
+    }
 
     let vector = new ol.layer.Vector({
       source: source,
@@ -398,7 +416,10 @@
         });
 
       draw.on('drawend',
-        () => {
+        (evt) => {
+          let serializedFeature = geoJson.writeFeature(evt.feature);
+          localStorage.setItem('featuresCache', serializedFeature);
+
           measureTooltipElement.className = 'ol-tooltip ol-tooltip-static';
           measureTooltip.setOffset([0, -7]);
           ol.Observable.unByKey(listener);
@@ -474,8 +495,12 @@
       window.open(url, '_blank').focus();
     }
 
-    queryForecast.onclick = () => {
-      calculateRoute();
+    trackAdsb.onclick = () => {
+      const savedIcaoCode = localStorage.getItem('icaoCode');
+      const icaoCode = prompt('Enter hex ICAO ADSB code',`${savedIcaoCode ?? '000000'}`);
+      localStorage.setItem('icaoCode', icaoCode);
+      const url = `https://globe.adsbexchange.com/?icao=${icaoCode}`;
+      window.open(url, '_blank').focus();
     }
 
     [queryWeather, queryForecast].forEach(e => e.onclick = () => {
@@ -504,7 +529,15 @@
     window.onload = () => {
       addInteraction();
       createHelpTooltip();
-      enableFeatures(false);
+      if (geomCache) {
+        createMeasureTooltip();
+        tooltipCoord = geomCache.getLastCoordinate();
+        measureTooltip.setPosition(tooltipCoord);
+        enableFeatures(true);
+      } else {
+        enableFeatures(false);
+      }
+
       logUnits.value = units;
 
       setupSelectOptions(aircraftSpeed, 60, 5, 1.85, 16, 0, (v) => `${Math.round(v).toString().padStart(3, "0")}kts (${Math.round(v * 1.85)}km/h)`);
@@ -513,6 +546,8 @@
       setupSelectOptions(magneticDeclination, 60, 1, 1, 30, -30, (v) => `${Math.round(v - 30)}deg`);
 
       setupTileSelect();
+
+      calculateRoute();
     };
   </script>
 
