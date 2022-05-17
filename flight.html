@@ -448,6 +448,11 @@
       }
       helpTooltipElement = document.createElement('div');
       helpTooltipElement.className = 'ol-tooltip';
+
+      if(helpTooltip) {
+        map.removeOverlay(helpTooltip);
+      }
+
       helpTooltip = new ol.Overlay({
         element: helpTooltipElement,
         offset: [15, 0],
@@ -462,6 +467,11 @@
       }
       measureTooltipElement = document.createElement('div');
       measureTooltipElement.className = 'ol-tooltip ol-tooltip-measure';
+
+      if(measureTooltip) {
+        map.removeOverlay(measureTooltip);
+      }
+
       measureTooltip = new ol.Overlay({
         element: measureTooltipElement,
         offset: [0, -15],
@@ -533,6 +543,8 @@
         createMeasureTooltip();
         tooltipCoord = geomCache.getLastCoordinate();
         measureTooltip.setPosition(tooltipCoord);
+        measureTooltipElement.className = 'ol-tooltip ol-tooltip-static';
+        measureTooltip.setOffset([0, -7]);
         enableFeatures(true);
       } else {
         enableFeatures(false);

@@ -2,6 +2,8 @@
 
 ![Flight planner](./img/flight_planner.png "Flight planner")
 
+Click below to try:
+
 [------------------>    **TRY ONLINE**    <------------------](https://rogalmic.github.io/flight-planner/flight.html?remote_tile_url=https%3A%2F%2F%7Ba-c%7D.tile.openstreetmap.org%2F%7Bz%7D%2F%7Bx%7D%2F%7By%7D.png&remote_tile_url=https%3A%2F%2Fsnapshots.openflightmaps.org%2Flive%2F2003%2Ftiles%2Fworld%2Fepsg3857%2Faero%2F512%2Flatest%2F%7Bz%7D%2F%7Bx%7D%2F%7By%7D.png&remote_tile_url=https%3A%2F%2Fserver.arcgisonline.com%2FArcGIS%2Frest%2Fservices%2FWorld_Imagery%2FMapServer%2Ftile%2F%7Bz%7D%2F%7By%7D%2F%7Bx%7D&local_tile_url=)
 
 ## Features
@@ -17,6 +19,8 @@
   * Possibility to switch between background maps during planning route
   * Remote maps work out-of-the-box, while local maps require setup
 * Open `METAR` and `TAF` for given route in separate page ([https://aviationweather.gov/adds/]), follows great circle path
+* Open `ADSB` history based on `ICAO` transponder code (adsbexchange service)
+* Remember last path
 * Export plan to [CSV file](https://en.wikipedia.org/wiki/Comma-separated_values) for further adjustments in external tools
 
 ## Reference
