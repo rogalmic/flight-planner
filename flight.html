@@ -161,6 +161,7 @@
     const planHistory = document.querySelector("select#history");
 
     let draw;
+    let modify;
     let listener;
     let helpTooltipElement;
     let helpTooltip;
@@ -387,11 +388,7 @@
       queryForecast.disabled = !dataAvailable;
     }
 
-    function addInteraction() {
-      draw = new ol.interaction.Draw({
-        source: source,
-        type: 'LineString',
-        style: new ol.style.Style({
+    let lineStyle = new ol.style.Style({
           fill: new ol.style.Fill({
             color: color1
           }),
@@ -410,60 +407,67 @@
             })
           }),
           geometry: drawGreatCircle,
-        })
-      });
-      map.addInteraction(draw);
+        });
 
-      draw.on('drawstart',
-        (evt) => {
-          measureTooltipElement.className = 'ol-tooltip ol-tooltip-measure';
+    function addInteraction() {
+      draw = new ol.interaction.Draw({
+        source: source,
+        type: 'LineString',
+        style: lineStyle,
+      });
+      modify = new ol.interaction.Modify({
+        source: source,
+      });
+
+      map.addInteraction(draw);
+      map.addInteraction(modify);
+
+      let onStartDraggingCommonActions = (evt, feature) => {
+        measureTooltipElement.className = 'ol-tooltip ol-tooltip-measure';
           helpTooltipElement.style.display = 'none';
-          source.getFeatures().forEach(f => source.removeFeature(f));
 
           enableFeatures(false);
 
-          listener = evt.feature.getGeometry().on('change', function (evt) {
+          listener = feature.getGeometry().on('change', function (evt) {
             currentGeometry = evt.target;
             tooltipCoord = currentGeometry.getLastCoordinate();
             measureTooltip.setPosition(tooltipCoord);
             calculateRoute();
           });
+      }
+
+      let onEndDraggingCommonActions = (evt, feature) => {
+        let serializedFeature = JSON.stringify([...featuresCache.map(f => geoJson.writeFeature(f))]);
+          localStorage.setItem('featuresCache', serializedFeature);
+
+          measureTooltipElement.className = 'ol-tooltip ol-tooltip-static';
+          ol.Observable.unByKey(listener);
+
+          calculateRoute();
+          enableFeatures(true);
+      }
+
+      draw.on('drawstart',
+        (evt) => {
+          source.getFeatures().forEach(f => source.removeFeature(f));
+          onStartDraggingCommonActions(evt, evt.feature);
         });
 
       draw.on('drawend',
         (evt) => {
           featuresCache = [evt.feature, ...featuresCache];
           if (featuresCache.length > planHistorySize) featuresCache.length = planHistorySize;
-          let serializedFeature = JSON.stringify([...featuresCache.map(f => geoJson.writeFeature(f))]);
-          localStorage.setItem('featuresCache', serializedFeature);
-
-          measureTooltipElement.className = 'ol-tooltip ol-tooltip-static';
-          measureTooltip.setOffset([0, -7]);
-          ol.Observable.unByKey(listener);
-
-          calculateRoute();
-          enableFeatures(true);
+          onEndDraggingCommonActions(evt, evt.feature);
         });
-
-      const modify = new ol.interaction.Modify({ source: source });
-      map.addInteraction(modify);
 
       modify.on('modifystart',
         (evt) => {
-          enableFeatures(false);
+          onStartDraggingCommonActions(evt, evt.features.item(0));
         });
 
       modify.on('modifyend',
-        () => {
-
-          let serializedFeature = JSON.stringify([...featuresCache.map(f => geoJson.writeFeature(f))]);
-          localStorage.setItem('featuresCache', serializedFeature);
-
-          measureTooltipElement.className = 'ol-tooltip ol-tooltip-static';
-          measureTooltip.setOffset([0, -7]);
-
-          calculateRoute();
-          enableFeatures(true);
+        (evt) => {
+          onEndDraggingCommonActions(evt, evt.features.item(0));
         });
     }
 
@@ -483,7 +487,7 @@
 
       measureTooltip = new ol.Overlay({
         element: measureTooltipElement,
-        offset: [0, -15],
+        offset: [0, -7],
         positioning: 'bottom-center'
       });
       map.addOverlay(measureTooltip);
@@ -547,7 +551,6 @@
       currentGeometry = currentFeature.getGeometry();
       tooltipCoord = currentGeometry.getLastCoordinate();
       measureTooltip.setPosition(tooltipCoord);
-      measureTooltip.setOffset([0, -7]);
       calculateRoute();
     };
 
@@ -575,7 +578,6 @@
       if (currentGeometry) {
         tooltipCoord = currentGeometry.getLastCoordinate();
         measureTooltip.setPosition(tooltipCoord);
-        measureTooltip.setOffset([0, -7]);
         enableFeatures(true);
       } else {
         enableFeatures(false);
