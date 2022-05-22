@@ -10,17 +10,26 @@
     html,
     body {
       height: 99%;
-      font-family: monospace;
+      font-family: Helvetica,Sans-serif;
       font-size: 14px;
     }
 
     input,
-    textarea,
     select {
-      font-family: monospace;
-      font-weight: bold;
+      font-family: Helvetica,Sans-serif;
       font-size: 14px;
-      background: white;
+      background: #DDDDDD;
+    }
+
+    input:hover,
+    select:hover {
+      background: white;      
+    }
+
+    textarea#log {
+      font-family: monospace;
+      font-size: 14px;
+      font-weight: bold;
     }
 
     input,
@@ -101,6 +110,10 @@
       font-weight: bold;
     }
 
+    .ol-tooltip-hidden {
+      visibility: hidden;
+    }
+
     .ol-tooltip-static {
       opacity: 1;
       background-color: #9999BB;
@@ -169,7 +182,7 @@
     let measureTooltip;
     let currentGeometry;
     let featuresCache;
-    let helpMsg = 'Click to start planning, double click to end';
+    let helpMsg = 'Click to start planning the route<br>Double click to finalize planning<br>Drag to modify or add new waypoints';
     let geoJson = new ol.format.GeoJSON();
 
     try {
@@ -204,7 +217,7 @@
       for (let i =0 ; i< planHistorySize; i++) {
         planHistory.add(new Option(`#${i}`, `${i}`));
       }
-      tileSource.value = '0';
+      planHistory.value = '0';
     }
 
     let searchParams = new URLSearchParams(window.location.search);
@@ -381,7 +394,9 @@
       measureTooltipElement.className = dataAvailable 
         ? 'ol-tooltip ol-tooltip-static' 
         : 'ol-tooltip ol-tooltip-measure';
-      helpTooltipElement.className = 'ol-tooltip';
+      helpTooltipElement.className = dataAvailable 
+        ? 'ol-tooltip'
+        : 'ol-tooltip-hidden';
 
       divLog.style.display = dataAvailable ? 'block' : 'none';
       queryWeather.disabled = !dataAvailable;
@@ -424,16 +439,16 @@
 
       let onStartDraggingCommonActions = (evt, feature) => {
         measureTooltipElement.className = 'ol-tooltip ol-tooltip-measure';
-          helpTooltipElement.style.display = 'none';
+        helpTooltipElement.className = 'ol-tooltip-hidden';
 
-          enableFeatures(false);
+        enableFeatures(false);
 
-          listener = feature.getGeometry().on('change', function (evt) {
-            currentGeometry = evt.target;
-            tooltipCoord = currentGeometry.getLastCoordinate();
-            measureTooltip.setPosition(tooltipCoord);
-            calculateRoute();
-          });
+        listener = feature.getGeometry().on('change', function (evt) {
+          currentGeometry = evt.target;
+          tooltipCoord = currentGeometry.getLastCoordinate();
+          measureTooltip.setPosition(tooltipCoord);
+          calculateRoute();
+        });
       }
 
       let onEndDraggingCommonActions = (evt, feature) => {
@@ -476,8 +491,8 @@
 
       helpTooltip = new ol.Overlay({
         element: helpTooltipElement,
-        offset: [15, 0],
-        positioning: 'center-left'
+        offset: [15, -15],
+        positioning: 'bottom-left'
       });
       map.addOverlay(helpTooltip);
     }
@@ -521,6 +536,7 @@
     trackAdsb.onclick = () => {
       const savedIcaoCode = localStorage.getItem('icaoCode');
       const icaoCode = prompt('Enter hex ICAO ADSB code',`${savedIcaoCode ?? '000000'}`);
+      if (icaoCode == null) return;
       localStorage.setItem('icaoCode', icaoCode);
       const url = `https://globe.adsbexchange.com/?icao=${icaoCode}`;
       window.open(url, '_blank').focus();
@@ -546,11 +562,22 @@
 
     planHistory.onchange = () => {
       source.getFeatures().forEach(f => source.removeFeature(f));
-      let currentFeature = featuresCache[parseInt(planHistory.value)];
+      let selectedHistoryIndex = parseInt(planHistory.value);
+
+      if (featuresCache.length <= selectedHistoryIndex) {
+        enableFeatures(false);
+        calculateRoute();
+        measureTooltipElement.className = 'ol-tooltip-hidden';
+        return;
+      }
+
+      let currentFeature = featuresCache[selectedHistoryIndex];
       source.addFeature(currentFeature);
+      measureTooltipElement.className = 'ol-tooltip ol-tooltip-static';
       currentGeometry = currentFeature.getGeometry();
       tooltipCoord = currentGeometry.getLastCoordinate();
       measureTooltip.setPosition(tooltipCoord);
+      enableFeatures(true);
       calculateRoute();
     };
 
@@ -560,6 +587,9 @@
     }
 
     window.onload = () => {
+      createHelpTooltip();
+      createMeasureTooltip();
+
       addInteraction();
 
       logUnits.value = units;
@@ -572,18 +602,7 @@
       setupTileSelect();
       setupHistorySelect();
 
-      createHelpTooltip();
-      createMeasureTooltip();
-
-      if (currentGeometry) {
-        tooltipCoord = currentGeometry.getLastCoordinate();
-        measureTooltip.setPosition(tooltipCoord);
-        enableFeatures(true);
-      } else {
-        enableFeatures(false);
-      }
-
-      calculateRoute();
+      planHistory.onchange();
     };
   </script>
 
