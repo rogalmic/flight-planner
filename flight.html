@@ -391,11 +391,11 @@
       return length / unitFactor / 1000;
     };
 
-    function enableFeatures(dataAvailable) {
+    function enableFeatures(dataAvailable, initial=false) {
       measureTooltipElement.className = dataAvailable 
         ? 'ol-tooltip ol-tooltip-static' 
         : 'ol-tooltip ol-tooltip-measure';
-      helpTooltipElement.className = dataAvailable 
+      helpTooltipElement.className = (dataAvailable || initial)
         ? 'ol-tooltip'
         : 'ol-tooltip-hidden';
 
@@ -566,7 +566,7 @@
       let selectedHistoryIndex = parseInt(planHistory.value);
 
       if (featuresCache.length <= selectedHistoryIndex) {
-        enableFeatures(false);
+        enableFeatures(false, true);
         calculateRoute();
         measureTooltipElement.className = 'ol-tooltip-hidden';
         return;
