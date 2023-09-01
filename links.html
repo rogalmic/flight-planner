@@ -13,7 +13,9 @@
         <a href="sms:+48577215344;?&body=On%20m%2010">EPLS lights 10 min</a>
         <a href="https://lotniskoleszno.pl/meteo/">EPLS METEO</a>
         <a href="https://rogalmic.github.io/flight-planner/flight.html?remote_tile_url=https%3A%2F%2F%7Ba-c%7D.tile.openstreetmap.org%2F%7Bz%7D%2F%7Bx%7D%2F%7By%7D.png&remote_tile_url=https%3A%2F%2Fsnapshots.openflightmaps.org%2Flive%2F2003%2Ftiles%2Fworld%2Fepsg3857%2Faero%2F512%2Flatest%2F%7Bz%7D%2F%7Bx%7D%2F%7By%7D.png&remote_tile_url=https%3A%2F%2Fserver.arcgisonline.com%2FArcGIS%2Frest%2Fservices%2FWorld_Imagery%2FMapServer%2Ftile%2F%7Bz%7D%2F%7By%7D%2F%7Bx%7D&local_tile_url=">VFR flight planner</a>
-        <a href="https://www.adsbexchange.com/api/feeders/?feed=4dSqSPclVG4w">Feeder adsbexchange</a>
-        <a href="#" onclick="var d = new Date(); d.setHours(d.getHours() - 2); this.setAttribute('href', `https://globe.adsbexchange.com/?replay=${d.toISOString().slice(0, 16).replace('T','-')}&lat=51.659&lon=16.766&zoom=9.0`)">Replay adsbexchange</a>
+        <a href="https://map.adsbexchange.com/sync/feeder.html?5A&SPSAOT">Feeder SPSAOT adsbexchange</a>
+        <a href="#" onclick="var d = new Date(); d.setHours(d.getUTCHours() - 1); this.setAttribute('href', `https://globe.adsbexchange.com/?replay=${d.toISOString().slice(0, 16).replace('T','-')}&lat=51.659&lon=16.766&zoom=9.0`)">Replay adsbexchange -1h</a>
+        <a href="#" onclick="var d = new Date(); d.setHours(d.getUTCHours() - 2); this.setAttribute('href', `https://globe.adsbexchange.com/?replay=${d.toISOString().slice(0, 16).replace('T','-')}&lat=51.659&lon=16.766&zoom=9.0`)">Replay adsbexchange -2h</a>
+        <a href="#" onclick="var d = new Date(); d.setHours(d.getUTCHours() - 4); this.setAttribute('href', `https://globe.adsbexchange.com/?replay=${d.toISOString().slice(0, 16).replace('T','-')}&lat=51.659&lon=16.766&zoom=9.0`)">Replay adsbexchange -4h</a>
     </body>
 </html>
