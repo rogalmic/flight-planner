@@ -2,6 +2,7 @@
 <html lang="en">
 
 <head>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes">
   <title>&#9992; VFR Flight Planning</title>
   <link rel="icon" href="data:,">
   <script src="./src/ol.js"></script>
@@ -10,9 +11,25 @@
   <style>
     html,
     body {
-      height: 99%;
+      height: 100%;
       font-family: Helvetica,Sans-serif;
-      font-size: 14px;
+      font-size: 16px;
+      touch-action: manipulation;
+      margin: 0;
+      padding: 0;
+      overflow-x: hidden;
+    }
+
+    @media (max-width: 768px) {
+      html, body {
+        font-size: 14px;
+      }
+    }
+
+    @media (max-width: 480px) {
+      html, body {
+        font-size: 13px;
+      }
     }
 
     input,
@@ -20,6 +37,9 @@
       font-family: Helvetica,Sans-serif;
       font-size: 14px;
       background: #DDDDDD;
+      min-height: 28px;
+      padding: 2px 4px;
+      box-sizing: border-box;
     }
 
     input:hover,
@@ -58,18 +78,23 @@
       left: 50px;
       top: 0;
       right: 0;
-      height: 28px;
+      min-height: 28px;
       line-height: 28px;
       z-index: 1;
       background: #9999BB;
       overflow: hidden;
       text-align: left;
-      padding-left: 4px;
+      padding: 2px 4px;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 4px;
     }
 
     div#options>label {
       font-weight: bold;
       color: white;
+      white-space: nowrap;
     }
 
     div#options>select#aircraft_speed {
@@ -120,6 +145,210 @@
       background-color: #9999BB;
       font-weight: bold;
     }
+
+    @media (max-width: 768px) {
+      html, body {
+        font-size: 16px;
+      }
+      
+      input, select {
+        font-size: 16px;
+        min-height: 44px;
+        padding: 8px 12px;
+        border-radius: 6px;
+      }
+      
+      div#options {
+        left: 0;
+        top: 0;
+        right: 0;
+        min-height: auto;
+        line-height: normal;
+        padding: 8px;
+        gap: 8px;
+        border-bottom: 2px solid #777799;
+      }
+      
+      div#options > * {
+        flex: 1 1 auto;
+        max-width: calc(50% - 8px);
+      }
+      
+      div#options > select#tile_source {
+        width: 100%;
+        max-width: 100%;
+        order: 99;
+        margin-top: 4px;
+      }
+      
+      div#log {
+        left: 0;
+        top: auto;
+        bottom: 0;
+        height: 160px;
+        border-top: 2px solid #777799;
+      }
+      
+      div#log>textarea#log {
+        height: 152px;
+        font-size: 15px;
+        padding: 8px;
+        box-sizing: border-box;
+      }
+      
+      select#tile_source {
+        width: 100%;
+      }
+      
+      div#options>select#aircraft_speed,
+      div#options>select#wind_speed {
+        width: auto;
+        min-width: 70px;
+      }
+      
+      /* Improve touch targets for map controls */
+      .ol-control button {
+        min-width: 44px;
+        min-height: 44px;
+        font-size: 20px;
+      }
+    }
+    
+    @media (max-width: 480px) {
+      html, body {
+        font-size: 18px;
+      }
+      
+      input, select {
+        font-size: 18px;
+        min-height: 48px;
+        padding: 10px 14px;
+        border-radius: 8px;
+      }
+      
+      div#options {
+        padding: 10px;
+        gap: 10px;
+      }
+      
+      div#options > * {
+        max-width: 100%;
+        min-height: 48px;
+      }
+      
+      div#options > input[type="button"] {
+        min-width: 80px;
+      }
+      
+      div#log {
+        height: 150px;
+      }
+      
+      div#log>textarea#log {
+        height: 142px;
+        font-size: 16px;
+        padding: 10px;
+      }
+      
+      .ol-tooltip {
+        font-size: 16px;
+        padding: 8px 12px;
+        border-radius: 6px;
+      }
+    }
+    
+    /* Extra small screens */
+    @media (max-width: 320px) {
+      html, body {
+        font-size: 16px;
+      }
+      
+      div#options {
+        padding: 6px;
+        gap: 6px;
+      }
+      
+      div#options > * {
+        font-size: 16px;
+        min-height: 44px;
+        padding: 8px 10px;
+      }
+      
+      div#options > input[type="button"] {
+        min-width: 70px;
+      }
+      
+      div#log {
+        height: 140px;
+      }
+      
+      div#log>textarea#log {
+        height: 132px;
+        font-size: 14px;
+        padding: 8px;
+      }
+    }
+    
+    /* Touch device optimizations */
+    @media (hover: none) and (pointer: coarse) {
+      input, select, input[type="button"] {
+        min-height: 48px !important;
+        padding: 14px 18px !important;
+        border-radius: 8px !important;
+      }
+      
+      div#options > * {
+        min-height: 48px !important;
+      }
+      
+      .ol-tooltip {
+        font-size: 18px;
+        padding: 12px 16px;
+        border-radius: 8px;
+      }
+      
+      /* Improve touch feedback */
+      input[type="button"]:active, select:active {
+        background: white !important;
+        transform: scale(0.96);
+        transition: transform 0.1s;
+      }
+      
+      /* Prevent text selection on tap */
+      input, select, label, button {
+        user-select: none;
+        -webkit-user-select: none;
+        -webkit-tap-highlight-color: rgba(0,0,0,0.1);
+      }
+      
+      /* Improve scrollability of log on touch */
+      textarea#log {
+        -webkit-overflow-scrolling: touch;
+      }
+      
+      /* Ensure map controls are touch-friendly */
+      .ol-control button {
+        min-width: 48px !important;
+        min-height: 48px !important;
+        font-size: 22px !important;
+      }
+      
+      .ol-zoom {
+        top: 12px;
+        left: 12px;
+      }
+    }
+    
+    /* General improvements for small screens */
+    @media (max-height: 600px) {
+      div#log {
+        height: 130px;
+      }
+      div#log>textarea#log {
+        height: 122px;
+      }
+    }
+    
   </style>
 </head>
 
